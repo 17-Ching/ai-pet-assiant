@@ -3,10 +3,24 @@
  * 封裝 Gemini API 與 RAG 檢索邏輯
  */
 
+import { GoogleGenAI } from "@google/genai";
 import {
   loadKnowledgeBase as loadKB,
   getKnowledgeBase,
 } from "./knowledgeManager.js";
+
+// 初始化 Gemini AI Client
+let genAI = null;
+function getGenAI() {
+  if (!genAI) {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("請在 .env 檔案中設定 VITE_GEMINI_API_KEY");
+    }
+    genAI = new GoogleGenAI({ apiKey });
+  }
+  return genAI;
+}
 
 /**
  * 載入知識庫（使用動態知識庫管理器）
@@ -177,60 +191,25 @@ ${message}
 }
 
 /**
- * 呼叫 Gemini API
+ * 呼叫 Gemini API（使用官方 SDK）
  * @param {string} prompt 完整 Prompt
- * @param {string} apiKey Gemini API Key
  * @returns {Promise<string>} AI 回應內容
  */
-async function callGeminiAPI(prompt, apiKey) {
-  const API_URL =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-
+async function callGeminiAPI(prompt) {
   try {
-    const response = await fetch(`${API_URL}?key=${apiKey}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const ai = getGenAI();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      generationConfig: {
+        temperature: 0.3,
+        topK: 40,
+        topP: 0.95,
+        maxOutputTokens: 1024,
       },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.3,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024,
-        },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE",
-          },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE",
-          },
-          {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE",
-          },
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE",
-          },
-        ],
-      }),
     });
 
-    if (!response.ok) {
-      throw new Error(`API 請求失敗: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || "無法取得回應";
+    return response.text || "無法取得回應";
   } catch (error) {
     console.error("Gemini API 錯誤:", error);
     throw error;
@@ -245,13 +224,6 @@ async function callGeminiAPI(prompt, apiKey) {
  * @returns {Promise<Object>} API 回應格式
  */
 export async function chat({ pet_profile, message }) {
-  // 取得 API Key
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("請在 .env 檔案中設定 VITE_GEMINI_API_KEY");
-  }
-
   // 1. 確保知識庫已載入
   await loadKnowledgeBase();
 
@@ -313,7 +285,7 @@ export async function chat({ pet_profile, message }) {
 
   // 8. 一般情況呼叫 Gemini API
   try {
-    const aiResponse = await callGeminiAPI(prompt, apiKey);
+    const aiResponse = await callGeminiAPI(prompt);
     const citations = relevantKnowledge.map((k) => k.source);
 
     // 根據知識庫內容決定建議行動
@@ -334,21 +306,24 @@ export async function chat({ pet_profile, message }) {
     };
   } catch (error) {
     console.warn("⚠️ Gemini API 呼叫失敗，使用本地知識庫回應:", error.message);
-    
+
     // API 失敗時使用本地知識庫回應
     if (relevantKnowledge.length > 0) {
-      const knowledgeAnswer = relevantKnowledge.map((k) => k.content).join("\n\n");
-      const fallbackMessage = error.message.includes('429') 
+      const knowledgeAnswer = relevantKnowledge
+        .map((k) => k.content)
+        .join("\n\n");
+      const fallbackMessage = error.message.includes("429")
         ? "ℹ️ 目前 API 請求繁忙，以下是來自本地知識庫的資訊：\n\n"
         : "ℹ️ 以下是來自本地知識庫的資訊：\n\n";
-      
+
       return {
         answer: fallbackMessage + knowledgeAnswer,
         citations: [...new Set(relevantKnowledge.map((k) => k.source))],
         risk_level,
-        suggested_next_actions: risk_level === "medium" 
-          ? ["持續觀察症狀變化", "若情況惡化請就醫"]
-          : ["定期觀察寵物狀況", "如有疑慮請諮詢獸醫"],
+        suggested_next_actions:
+          risk_level === "medium"
+            ? ["持續觀察症狀變化", "若情況惡化請就醫"]
+            : ["定期觀察寵物狀況", "如有疑慮請諮詢獸醫"],
       };
     }
 
