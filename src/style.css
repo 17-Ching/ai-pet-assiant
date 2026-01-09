@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --blue: #0f7bda;
+  --primary: #53b3f7;
+  --primary-dark: #0472d5;
+  --CTA-linear1: #41e69d;
+  --CTA-linear2: #47e8c8;
+  --CTA-linear3: #1cded9;
+  --success: #67bc1c;
+  --info: #0c9ee0;
+  --warning: #ffa100;
+  --danger: #ef2d20;
+  --text-primary: #0375d8;
+  --text-secondary: #00cea0;
+  --text-100: #0b0b0b;
+  --text-80: #3c3c3c;
+  --text-60: #6d6d6d;
+  --text-40: #9d9d9e;
+  --text-20: #cecece;
+  --text-10: #eeeeee;
+  --bg-color: #eef7fe;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-100);
+  font-family: "Noto Sans TC", sans-serif;
+}

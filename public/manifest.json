@@ -1,0 +1,43 @@
+{
+  "version": "1.0.0",
+  "last_update": "2026-01-08",
+  "project": "Pet AI Assistant - 寵物健康智能助手",
+  "knowledge_sources": [
+    {
+      "id": "main-knowledge",
+      "type": "json",
+      "path": "/knowledge.json",
+      "enabled": true,
+      "description": "主要寵物健康知識庫"
+    }
+  ],
+  "update_records": [
+    {
+      "version": "1.0.0",
+      "date": "2026-01-08",
+      "changes": [
+        "✅ 初始版本發布",
+        "✅ 包含醫療、餵養、照護、禁忌四大類知識",
+        "✅ 支援狗狗與貓咪兩種寵物",
+        "✅ 實作高風險醫療分流機制",
+        "✅ 完整引用來源追蹤",
+        "✅ 防止 AI 胡說八道機制"
+      ]
+    }
+  ],
+  "features": {
+    "risk_assessment": true,
+    "citation_tracking": true,
+    "anti_hallucination": true,
+    "multi_species": [
+      "dog",
+      "cat"
+    ],
+    "categories": [
+      "醫療",
+      "餵養",
+      "照護",
+      "禁忌"
+    ]
+  }
+}

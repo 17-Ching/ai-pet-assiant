@@ -1,0 +1,436 @@
+/**
+ * Gemini Pet AI Assistant Service
+ * 封裝 Gemini API 與 RAG 檢索邏輯
+ */
+
+import {
+  loadKnowledgeBase as loadKB,
+  getKnowledgeBase,
+} from "./knowledgeManager.js";
+
+/**
+ * 載入知識庫（使用動態知識庫管理器）
+ * @returns {Promise<Object>} 知識庫資料
+ */
+export async function loadKnowledgeBase() {
+  return await loadKB();
+}
+
+/**
+ * 高風險評估函數
+ * 偵測緊急醫療關鍵字
+ * @param {string} message 使用者訊息
+ * @returns {Object} { isHighRisk: boolean, riskType: string, matchedKeywords: string[] }
+ */
+export function riskAssessment(message) {
+  const criticalKeywords = [
+    "抽搐",
+    "發紫",
+    "大量出血",
+    "意識不清",
+    "昏迷",
+    "無法呼吸",
+    "呼吸停止",
+    "呼吸急促",
+  ];
+  const poisoningKeywords = [
+    "誤食",
+    "中毒",
+    "吃到清潔劑",
+    "農藥",
+    "殺蟲劑",
+    "老鼠藥",
+  ];
+  const toxicFoods = [
+    "葡萄",
+    "巧克力",
+    "洋蔥",
+    "大蒜",
+    "木糖醇",
+    "酒精",
+    "咖啡因",
+  ];
+  const severeSymptoms = [
+    "持續嘔吐",
+    "嘔吐超過",
+    "24小時",
+    "大量嘔血",
+    "血便",
+    "無法站立",
+  ];
+
+  const matchedCritical = criticalKeywords.filter((kw) => message.includes(kw));
+  const matchedPoisoning = poisoningKeywords.filter((kw) =>
+    message.includes(kw)
+  );
+  const matchedToxic = toxicFoods.filter((kw) => message.includes(kw));
+  const matchedSevere = severeSymptoms.filter((kw) => message.includes(kw));
+
+  // 判定是否為高風險
+  const isHighRisk =
+    matchedCritical.length > 0 ||
+    matchedPoisoning.length > 0 ||
+    matchedToxic.length > 0 ||
+    matchedSevere.length > 0;
+
+  let riskType = "normal";
+  if (matchedCritical.length > 0) riskType = "critical";
+  else if (matchedPoisoning.length > 0) riskType = "poisoning";
+  else if (matchedToxic.length > 0) riskType = "toxic_food";
+  else if (matchedSevere.length > 0) riskType = "severe_symptom";
+
+  return {
+    isHighRisk,
+    riskType,
+    matchedKeywords: [
+      ...matchedCritical,
+      ...matchedPoisoning,
+      ...matchedToxic,
+      ...matchedSevere,
+    ],
+  };
+}
+
+/**
+ * 在知識庫中搜尋相關內容
+ * @param {string} query 查詢字串
+ * @param {string} species 物種 (dog/cat)
+ * @returns {Array} 匹配的知識條目
+ */
+export function searchKnowledge(query, species = null) {
+  const knowledgeBase = getKnowledgeBase();
+  if (!knowledgeBase || !knowledgeBase.entries) return [];
+
+  const queryLower = query.toLowerCase();
+
+  return knowledgeBase.entries.filter((entry) => {
+    // 關鍵字匹配
+    const keywordMatch = entry.keywords?.some(
+      (kw) => query.includes(kw) || kw.includes(queryLower)
+    );
+
+    // 主題匹配
+    const topicMatch =
+      query.includes(entry.topic) || entry.topic.includes(query);
+
+    // 內容匹配
+    const contentMatch =
+      entry.content.split("").some((char) => query.includes(char)) &&
+      query.length > 2;
+
+    // 物種過濾
+    const speciesMatch =
+      !species || !entry.species || entry.species.includes(species);
+
+    return (keywordMatch || topicMatch) && speciesMatch;
+  });
+}
+
+/**
+ * 建構 Gemini Prompt
+ * @param {Object} params 參數物件
+ * @returns {string} 完整 Prompt
+ */
+function buildPrompt({ message, petProfile, relevantKnowledge, riskInfo }) {
+  const knowledgeContext =
+    relevantKnowledge.length > 0
+      ? relevantKnowledge
+          .map((k) => `【${k.topic}】${k.content}（來源：${k.source}）`)
+          .join("\n")
+      : "無相關知識";
+
+  const systemPrompt = `你是一個專業的寵物健康 AI 助手。請根據以下規則回答問題：
+
+## 重要規則
+1. **嚴禁編造**：你只能根據下方「知識庫內容」回答。若無相關資訊，必須回覆：「抱歉，目前知識庫中沒有相關資訊，為了寵物安全，我不提供未經證實的建議。」
+2. **必須引用來源**：回答時必須在末尾標註資訊來源。
+3. **高風險優先**：若涉及緊急情況（抽搐、中毒、大量出血等），第一句話必須是「⚠️ 緊急建議：請立即就醫！」
+4. **禁忌食物警告**：提及葡萄、巧克力、洋蔥等禁忌食物時，必須明確給出中毒風險警告。
+
+## 寵物資料
+- 物種：${
+    petProfile.species === "dog"
+      ? "狗"
+      : petProfile.species === "cat"
+      ? "貓"
+      : petProfile.species || "未知"
+  }
+- 年齡：${petProfile.age || "未知"}
+- 體重：${petProfile.weight || "未知"} 公斤
+
+## 知識庫內容
+${knowledgeContext}
+
+## 風險評估
+${
+  riskInfo.isHighRisk
+    ? `⚠️ 偵測到高風險關鍵字：${riskInfo.matchedKeywords.join("、")}`
+    : "無特殊風險"
+}
+
+## 使用者問題
+${message}
+
+請以繁體中文回答，語氣親切專業。`;
+
+  return systemPrompt;
+}
+
+/**
+ * 呼叫 Gemini API
+ * @param {string} prompt 完整 Prompt
+ * @param {string} apiKey Gemini API Key
+ * @returns {Promise<string>} AI 回應內容
+ */
+async function callGeminiAPI(prompt, apiKey) {
+  const API_URL =
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+
+  try {
+    const response = await fetch(`${API_URL}?key=${apiKey}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.3,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE",
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE",
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE",
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE",
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API 請求失敗: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "無法取得回應";
+  } catch (error) {
+    console.error("Gemini API 錯誤:", error);
+    throw error;
+  }
+}
+
+/**
+ * 主要對話函數 - POST /chat
+ * @param {Object} params
+ * @param {Object} params.pet_profile - { species, age, weight }
+ * @param {string} params.message - 使用者訊息
+ * @returns {Promise<Object>} API 回應格式
+ */
+export async function chat({ pet_profile, message }) {
+  // 取得 API Key
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("請在 .env 檔案中設定 VITE_GEMINI_API_KEY");
+  }
+
+  // 1. 確保知識庫已載入
+  await loadKnowledgeBase();
+
+  // 2. 風險評估
+  const riskInfo = riskAssessment(message);
+
+  // 3. 搜尋相關知識
+  const relevantKnowledge = searchKnowledge(message, pet_profile?.species);
+
+  // 4. 決定風險等級
+  let risk_level = "low";
+  if (riskInfo.isHighRisk) {
+    risk_level = "high";
+  } else if (relevantKnowledge.some((k) => k.risk_level === "medium")) {
+    risk_level = "medium";
+  } else if (relevantKnowledge.some((k) => k.risk_level === "high")) {
+    risk_level = "high";
+  }
+
+  // 5. 建構 Prompt
+  const prompt = buildPrompt({
+    message,
+    petProfile: pet_profile || {},
+    relevantKnowledge,
+    riskInfo,
+  });
+
+  // 6. 處理無知識庫匹配的情況（防幻覺）
+  if (relevantKnowledge.length === 0 && !riskInfo.isHighRisk) {
+    return {
+      answer:
+        "抱歉，目前知識庫中沒有相關資訊，為了寵物安全，我不提供未經證實的建議。建議您諮詢專業獸醫師。",
+      citations: [],
+      risk_level: "low",
+      suggested_next_actions: ["諮詢專業獸醫師", "查閱官方寵物照護資源"],
+    };
+  }
+
+  // 7. 高風險情況強制回應
+  if (riskInfo.isHighRisk) {
+    const toxicKnowledge = relevantKnowledge.filter(
+      (k) => k.risk_level === "high"
+    );
+    const citations = toxicKnowledge.map((k) => k.source);
+    const additionalInfo = toxicKnowledge.map((k) => k.content).join(" ");
+
+    return {
+      answer: `⚠️ 緊急建議：請立即就醫！\n\n${additionalInfo}\n\n這是緊急情況，請立即聯繫最近的動物醫院。時間就是生命，請不要延誤！`,
+      citations: citations.length > 0 ? citations : ["寵物急診臨床規範"],
+      risk_level: "high",
+      suggested_next_actions: [
+        "立即撥打動物急診專線",
+        "搜尋附近 24 小時動物醫院",
+        "記錄發病時間與症狀",
+        "準備就醫所需資料",
+      ],
+    };
+  }
+
+  // 8. 一般情況呼叫 Gemini API
+  try {
+    const aiResponse = await callGeminiAPI(prompt, apiKey);
+    const citations = relevantKnowledge.map((k) => k.source);
+
+    // 根據知識庫內容決定建議行動
+    let suggested_next_actions = ["定期觀察寵物狀況"];
+    if (risk_level === "medium") {
+      suggested_next_actions = [
+        "持續觀察症狀變化",
+        "若情況惡化請就醫",
+        "記錄症狀發生時間",
+      ];
+    }
+
+    return {
+      answer: aiResponse,
+      citations: [...new Set(citations)],
+      risk_level,
+      suggested_next_actions,
+    };
+  } catch (error) {
+    console.warn("⚠️ Gemini API 呼叫失敗，使用本地知識庫回應:", error.message);
+    
+    // API 失敗時使用本地知識庫回應
+    if (relevantKnowledge.length > 0) {
+      const knowledgeAnswer = relevantKnowledge.map((k) => k.content).join("\n\n");
+      const fallbackMessage = error.message.includes('429') 
+        ? "ℹ️ 目前 API 請求繁忙，以下是來自本地知識庫的資訊：\n\n"
+        : "ℹ️ 以下是來自本地知識庫的資訊：\n\n";
+      
+      return {
+        answer: fallbackMessage + knowledgeAnswer,
+        citations: [...new Set(relevantKnowledge.map((k) => k.source))],
+        risk_level,
+        suggested_next_actions: risk_level === "medium" 
+          ? ["持續觀察症狀變化", "若情況惡化請就醫"]
+          : ["定期觀察寵物狀況", "如有疑慮請諮詢獸醫"],
+      };
+    }
+
+    // 完全沒有知識庫資料時才拋出錯誤
+    throw new Error("無法取得回應，且知識庫中沒有相關資訊");
+  }
+}
+
+/**
+ * 模擬 API（開發測試用）
+ * 不需要真實 API Key
+ */
+export async function chatMock({ pet_profile, message }) {
+  await loadKnowledgeBase();
+
+  const riskInfo = riskAssessment(message);
+  const relevantKnowledge = searchKnowledge(message, pet_profile?.species);
+
+  // 決定風險等級
+  let risk_level = "low";
+  if (riskInfo.isHighRisk) {
+    risk_level = "high";
+  } else if (relevantKnowledge.some((k) => k.risk_level === "medium")) {
+    risk_level = "medium";
+  } else if (relevantKnowledge.some((k) => k.risk_level === "high")) {
+    risk_level = "high";
+  }
+
+  // 無匹配知識 - 拒答
+  if (relevantKnowledge.length === 0 && !riskInfo.isHighRisk) {
+    return {
+      answer:
+        "抱歉，目前知識庫中沒有相關資訊，為了寵物安全，我不提供未經證實的建議。建議您諮詢專業獸醫師。",
+      citations: [],
+      risk_level: "low",
+      suggested_next_actions: ["諮詢專業獸醫師", "查閱官方寵物照護資源"],
+    };
+  }
+
+  // 高風險情況
+  if (riskInfo.isHighRisk) {
+    const toxicKnowledge = relevantKnowledge.filter(
+      (k) => k.risk_level === "high"
+    );
+    const citations = toxicKnowledge.map((k) => k.source);
+    const additionalInfo =
+      toxicKnowledge.length > 0
+        ? toxicKnowledge.map((k) => k.content).join(" ")
+        : "請立即就醫，這是緊急情況！";
+
+    return {
+      answer: `⚠️ 緊急建議：請立即就醫！\n\n${additionalInfo}\n\n這是緊急情況，請立即聯繫最近的動物醫院。時間就是生命，請不要延誤！`,
+      citations: citations.length > 0 ? citations : ["寵物急診臨床規範"],
+      risk_level: "high",
+      suggested_next_actions: [
+        "立即撥打動物急診專線",
+        "搜尋附近 24 小時動物醫院",
+        "記錄發病時間與症狀",
+        "準備就醫所需資料",
+      ],
+    };
+  }
+
+  // 一般情況
+  return {
+    answer:
+      relevantKnowledge.map((k) => k.content).join("\n\n") +
+      "\n\n📚 資料來源：" +
+      relevantKnowledge.map((k) => k.source).join("、"),
+    citations: [...new Set(relevantKnowledge.map((k) => k.source))],
+    risk_level,
+    suggested_next_actions:
+      risk_level === "medium"
+        ? ["持續觀察症狀變化", "若情況惡化請就醫", "記錄症狀發生時間"]
+        : ["定期觀察寵物狀況", "維持正常飲食作息"],
+  };
+}
+
+export default {
+  loadKnowledgeBase,
+  riskAssessment,
+  searchKnowledge,
+  chat,
+  chatMock,
+};
