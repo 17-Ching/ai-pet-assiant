@@ -8,31 +8,20 @@
       </div>
     </header>
 
-    <!-- 寵物資料設定 -->
-    <div class="pet-profile-card bg-primary">
-      <div class="profile-header">
-        <h3 class="text-white">寵物資料</h3>
-      </div>
-      <div class="profile-form">
-        <div class="form-group">
-          <label>物種</label>
-          <select v-model="petProfile.species">
-            <option value="dog">狗狗</option>
-            <option value="cat">貓咪</option>
-          </select>
+    <!-- 寵物資料設定 - 簡潔版 -->
+    <div class="pet-profile-compact bg-primary">
+      <div class="compact-content">
+        <span class="material-symbols-rounded">pets</span>
+        <div class="profile-summary">
+          <span class="profile-text">
+            {{ petProfile.species === "dog" ? "🐕 狗狗" : "🐱 貓咪" }}
+            {{ petProfile.age ? ` · ${petProfile.age}` : "" }}
+            {{ petProfile.weight ? ` · ${petProfile.weight}kg` : "" }}
+          </span>
         </div>
-        <div class="form-group">
-          <label>年齡</label>
-          <input v-model="petProfile.age" type="text" placeholder="例：2歲" />
-        </div>
-        <div class="form-group pr-4">
-          <label>體重 (kg)</label>
-          <input
-            v-model="petProfile.weight"
-            type="number"
-            placeholder="例：5"
-          />
-        </div>
+        <button @click="togglePetProfileModal" class="edit-btn">
+          <span class="material-symbols-rounded">edit</span>
+        </button>
       </div>
     </div>
 
@@ -70,9 +59,10 @@
         ]"
       >
         <div class="message-avatar">
-          <span class="material-symbols-rounded">
-            {{ msg.role === "user" ? "person" : "smart_toy" }}
+          <span v-if="msg.role === 'user'" class="material-symbols-rounded">
+            person
           </span>
+          <img v-else src="/ai-pet icon.svg" alt="AI" class="avatar-image" />
         </div>
         <div class="message-content">
           <!-- 風險警告標籤 -->
@@ -141,7 +131,7 @@
       <!-- 載入中狀態 -->
       <div v-if="isLoading" class="message assistant loading">
         <div class="message-avatar">
-          <span class="material-symbols-rounded">smart_toy</span>
+          <img src="/ai-pet icon.svg" alt="AI" class="avatar-image" />
         </div>
         <div class="message-content shadow-sm">
           <div class="typing-indicator">
@@ -192,6 +182,58 @@
         >
           <span class="material-symbols-rounded">refresh</span>
         </button>
+      </div>
+
+      <!-- 寵物資料設定彈窗 -->
+      <div
+        v-if="showPetProfileModal"
+        class="pet-modal-overlay"
+        @click="togglePetProfileModal"
+      >
+        <div class="pet-modal" @click.stop>
+          <div class="modal-header">
+            <h3>
+              <span class="material-symbols-rounded">pets</span>
+              寵物資料設定
+            </h3>
+            <button @click="togglePetProfileModal" class="close-btn">
+              <span class="material-symbols-rounded">close</span>
+            </button>
+          </div>
+          <div class="modal-content">
+            <div class="profile-form-modal">
+              <div class="form-group-modal">
+                <label>物種</label>
+                <select v-model="petProfile.species">
+                  <option value="dog">🐕 狗狗</option>
+                  <option value="cat">🐱 貓咪</option>
+                </select>
+              </div>
+              <div class="form-group-modal">
+                <label>年齡</label>
+                <input
+                  v-model="petProfile.age"
+                  type="text"
+                  placeholder="例：2歲"
+                />
+              </div>
+              <div class="form-group-modal">
+                <label>體重 (kg)</label>
+                <input
+                  v-model="petProfile.weight"
+                  type="number"
+                  placeholder="例：5"
+                />
+              </div>
+            </div>
+            <div class="modal-actions">
+              <button @click="togglePetProfileModal" class="confirm-btn">
+                <span class="material-symbols-rounded">check</span>
+                確定
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 版本說明彈窗 -->
@@ -251,6 +293,7 @@ const versionInfo = ref({
   update_records: [],
 });
 const showVersionModal = ref(false);
+const showPetProfileModal = ref(false);
 
 // 寵物資料
 const petProfile = ref({
@@ -332,6 +375,11 @@ async function sendMessage() {
   }
 }
 
+// 寵物資料彈窗
+function togglePetProfileModal() {
+  showPetProfileModal.value = !showPetProfileModal.value;
+}
+
 // 版本資訊相關
 function toggleVersionModal() {
   showVersionModal.value = !showVersionModal.value;
@@ -397,7 +445,6 @@ async function scrollToBottom() {
 
 /* 容器 */
 .chat-container {
-  max-width: 800px;
   margin: 0 auto;
   height: 100vh;
   display: flex;
@@ -441,60 +488,104 @@ async function scrollToBottom() {
   letter-spacing: 0.5px;
 }
 
-/* ========== 寵物資料卡 ========== */
-.pet-profile-card {
-  padding: 16px 20px;
-  border-radius: 20px 20px 0 0;
-  border: 2px solid var(--border-light);
-  box-shadow: var(--shadow-soft);
+/* ========== 寵物資料 - 簡潔版 ========== */
+.pet-profile-compact {
+  padding: 12px 20px;
+  border-bottom: 2px solid var(--border-light);
 }
 
-.profile-header {
+.compact-content {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 12px;
+  color: var(--text-10);
 }
 
-.profile-icon {
-  font-size: 20px;
-  color: var(--text-40);
+.compact-content > .material-symbols-rounded {
+  font-size: 24px;
 }
 
-.pet-profile-card h3 {
-  margin: 0;
+.profile-summary {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-text {
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--text-10);
 }
 
-.profile-form {
+.edit-btn {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.form-group {
-  flex: 1;
-  min-width: 90px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.7rem;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
   color: var(--text-10);
-  margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.form-group select,
-.form-group input {
+.edit-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.edit-btn .material-symbols-rounded {
+  font-size: 20px;
+}
+
+/* ========== 寵物資料彈窗 ========== */
+.pet-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.2s ease;
+}
+
+.pet-modal {
+  background: var(--bg-secondary);
+  border-radius: 16px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease;
+}
+
+.profile-form-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group-modal label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.form-group-modal select,
+.form-group-modal input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: 2px solid var(--border-light);
   border-radius: 12px;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-family: inherit;
   background-color: #ffff;
   color: var(--text-primary);
@@ -502,11 +593,42 @@ async function scrollToBottom() {
   transition: all 0.25s ease-out;
 }
 
-.form-group select:focus,
-.form-group input:focus {
+.form-group-modal select:focus,
+.form-group-modal input:focus {
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px rgba(166, 123, 91, 0.15);
+}
+
+.modal-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.confirm-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirm-btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(166, 123, 91, 0.3);
+}
+
+.confirm-btn .material-symbols-rounded {
+  font-size: 18px;
 }
 
 /* ========== 對話區域 ========== */
@@ -619,6 +741,12 @@ async function scrollToBottom() {
 .message-avatar .material-symbols-rounded {
   font-size: 20px;
   color: #ffff;
+}
+
+.message-avatar .avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .message.user .message-avatar {
@@ -1134,16 +1262,12 @@ async function scrollToBottom() {
     height: 100dvh;
   }
 
-  .profile-form {
-    flex-direction: column;
-  }
-
-  .form-group {
-    min-width: 100%;
-  }
-
   .message-content {
     max-width: 85%;
+  }
+
+  .pet-modal {
+    max-width: 95%;
   }
 
   .quick-actions {
