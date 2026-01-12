@@ -1,17 +1,20 @@
 ﻿<template>
-  <div class="chat-container">
+  <div class="p-4 bg-[#C3D8E4] min-h-[100vh]">
     <!-- 頂部標題 -->
-    <header class="chat-header">
-      <div class="header-content">
-        <span class="material-symbols-rounded header-icon">pets</span>
-        <h1>寵物健康助手</h1>
+    <header
+      class="bg-[rgba(255,255,255,0.8)] rounded-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.1)] px-10 py-4 flex justify-between items-center"
+    >
+      <!-- logo -->
+      <div class="flex gap-4 items-center font-bold">
+        <img src="/ai-pet icon.svg" alt="logo" />
+        <span class="text-text-primary text-[24px]">寵物 AI 智能助手</span>
       </div>
-    </header>
 
-    <!-- 寵物資料設定 - 簡潔版 -->
-    <div class="pet-profile-compact bg-primary">
-      <div class="compact-content">
-        <span class="material-symbols-rounded">pets</span>
+      <!-- 寵物資料設定 -->
+      <button
+        @click="togglePetProfileModal"
+        class="bg-primary flex text-white px-4 py-2 rounded-full gap-3 items-center h-fit"
+      >
         <div class="profile-summary">
           <span class="profile-text">
             {{ petProfile.species === "dog" ? "🐕 狗狗" : "🐱 貓咪" }}
@@ -19,27 +22,30 @@
             {{ petProfile.weight ? ` · ${petProfile.weight}kg` : "" }}
           </span>
         </div>
-        <button @click="togglePetProfileModal" class="edit-btn">
-          <span class="material-symbols-rounded">edit</span>
-        </button>
-      </div>
-    </div>
+        <span class="material-symbols-outlined"> edit_square </span>
+      </button>
+    </header>
 
     <!-- 對話區域 -->
-    <div class="chat-messages" ref="messagesContainer">
+    <div ref="messagesContainer">
       <!-- 歡迎訊息 -->
-      <div v-if="messages.length === 0" class="welcome-message">
-        <span class="material-symbols-rounded welcome-icon">favorite</span>
-        <h2>歡迎使用寵物健康助手</h2>
+      <div
+        v-if="messages.length === 0"
+        class="text-center flex flex-col justify-center items-center gap-6"
+      >
+        <span class="material-symbols-outlined text-[40px] text-white">
+          favorite
+        </span>
+        <h2 class="text-text-primary text-[40px]">歡迎使用寵物健康助手</h2>
         <p>我可以回答關於寵物餵養、照護和健康的問題</p>
         <div class="quick-actions">
           <button
             v-for="q in quickQuestions"
             :key="q"
             @click="sendQuickQuestion(q)"
-            class="quick-btn"
+            class="quick-btn text-text-secondary bg-white rounded-full shadow-sm"
           >
-            <span class="material-symbols-rounded">chat_bubble</span>
+            <span class="material-symbols-outlined"> chat_bubble </span>
             {{ q }}
           </button>
         </div>
@@ -190,14 +196,14 @@
         class="pet-modal-overlay"
         @click="togglePetProfileModal"
       >
-        <div class="pet-modal" @click.stop>
-          <div class="modal-header">
+        <div class="pet-modal bg-primary" @click.stop>
+          <div class="modal-header text-white">
             <h3>
-              <span class="material-symbols-rounded">pets</span>
+              <span class="material-symbols-outlined"> pets </span>
               寵物資料設定
             </h3>
             <button @click="togglePetProfileModal" class="close-btn">
-              <span class="material-symbols-rounded">close</span>
+              <span class="material-symbols-outlined"> close_small </span>
             </button>
           </div>
           <div class="modal-content">
@@ -443,16 +449,6 @@ async function scrollToBottom() {
 /* Google Fonts & Material Icons */
 @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap");
 
-/* 容器 */
-.chat-container {
-  margin: 0 auto;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background-color: var(--bg-color);
-  font-family: "Noto Sans TC", sans-serif;
-}
-
 /* Material Icons 樣式 */
 .material-symbols-rounded {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
@@ -553,7 +549,6 @@ async function scrollToBottom() {
 }
 
 .pet-modal {
-  background: var(--bg-secondary);
   border-radius: 16px;
   max-width: 400px;
   width: 90%;
@@ -575,7 +570,7 @@ async function scrollToBottom() {
 
 .form-group-modal label {
   font-size: 0.85rem;
-  color: var(--text-secondary);
+  color: #ffff;
   font-weight: 500;
 }
 
@@ -672,7 +667,7 @@ async function scrollToBottom() {
 .quick-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 20px;
   justify-content: center;
 }
 
@@ -680,15 +675,11 @@ async function scrollToBottom() {
   display: flex;
   align-items: center;
   gap: 6px;
-  background: var(--bg-secondary);
-  border: 2px solid var(--border-light);
-  color: var(--text-secondary);
   padding: 10px 16px;
   border-radius: 24px;
   cursor: pointer;
   transition: all 0.25s ease-out;
   font-size: 0.85rem;
-  font-family: inherit;
 }
 
 .quick-btn .material-symbols-rounded {
@@ -697,8 +688,7 @@ async function scrollToBottom() {
 }
 
 .quick-btn:hover {
-  background: var(--user-bubble);
-  border-color: var(--primary);
+  background: #ffff;
   color: var(--primary-dark);
   transform: translateY(-2px);
   box-shadow: var(--shadow-soft);
@@ -1176,7 +1166,6 @@ async function scrollToBottom() {
   gap: 8px;
   margin: 0;
   font-size: 1.1rem;
-  color: var(--text-primary);
 }
 
 .modal-header .material-symbols-rounded {
