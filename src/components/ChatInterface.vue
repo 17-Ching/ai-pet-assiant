@@ -1,33 +1,35 @@
 ﻿<template>
-  <div class="p-4 bg-[#C3D8E4] min-h-[100vh]">
+  <div class="bg-[#C3D8E4] min-h-[100vh] relative">
     <!-- 頂部標題 -->
-    <header
-      class="bg-[rgba(255,255,255,0.8)] rounded-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.1)] px-10 py-4 flex justify-between items-center"
-    >
-      <!-- logo -->
-      <div class="flex gap-4 items-center font-bold">
-        <img src="/ai-pet icon.svg" alt="logo" />
-        <span class="text-text-primary text-[24px]">寵物 AI 智能助手</span>
-      </div>
-
-      <!-- 寵物資料設定 -->
-      <button
-        @click="togglePetProfileModal"
-        class="bg-primary flex text-white px-4 py-2 rounded-full gap-3 items-center h-fit"
+    <header class="sticky top-0 left-0 w-full p-4 mb-10">
+      <div
+        class="bg-[#F3F7FA] rounded-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.1)] px-10 py-4 flex justify-between items-center"
       >
-        <div class="profile-summary">
-          <span class="profile-text">
-            {{ petProfile.species === "dog" ? "🐕 狗狗" : "🐱 貓咪" }}
-            {{ petProfile.age ? ` · ${petProfile.age}` : "" }}
-            {{ petProfile.weight ? ` · ${petProfile.weight}kg` : "" }}
-          </span>
+        <!-- logo -->
+        <div class="flex gap-4 items-center font-bold">
+          <img src="/ai-pet icon.svg" alt="logo" />
+          <span class="text-text-primary text-[24px]">寵物 AI 智能助手</span>
         </div>
-        <span class="material-symbols-outlined"> edit_square </span>
-      </button>
+
+        <!-- 寵物資料設定 -->
+        <button
+          @click="togglePetProfileModal"
+          class="bg-primary flex text-white px-4 py-2 rounded-full gap-3 items-center h-fit"
+        >
+          <div class="profile-summary">
+            <span class="profile-text">
+              {{ petProfile.species === "dog" ? "🐕 狗狗" : "🐱 貓咪" }}
+              {{ petProfile.age ? ` · ${petProfile.age}` : "" }}
+              {{ petProfile.weight ? ` · ${petProfile.weight}kg` : "" }}
+            </span>
+          </div>
+          <span class="material-symbols-outlined"> edit_square </span>
+        </button>
+      </div>
     </header>
 
     <!-- 對話區域 -->
-    <div ref="messagesContainer">
+    <div ref="messagesContainer" class="max-w-[800px] mx-auto space-y-4">
       <!-- 歡迎訊息 -->
       <div
         v-if="messages.length === 0"
@@ -65,22 +67,32 @@
         ]"
       >
         <div class="message-avatar">
-          <span v-if="msg.role === 'user'" class="material-symbols-rounded">
+          <span
+            v-if="msg.role === 'user'"
+            class="material-symbols-outlined text-white"
+          >
             person
           </span>
-          <img v-else src="/ai-pet icon.svg" alt="AI" class="avatar-image" />
+          <div
+            v-else
+            class="w-9 h-9 bg-CTA rounded-full flex items-center justify-center"
+          >
+            <span class="material-symbols-outlined text-white">
+              smart_toy
+            </span>
+          </div>
         </div>
         <div class="message-content">
           <!-- 風險警告標籤 -->
           <div v-if="msg.risk_level === 'high'" class="risk-badge high">
-            <span class="material-symbols-rounded blink">error</span>
+            <span class="material-symbols-outlined text-sm blink">error</span>
             緊急警告
           </div>
           <div
             v-else-if="msg.risk_level === 'medium'"
             class="risk-badge medium"
           >
-            <span class="material-symbols-rounded">warning</span>
+            <span class="material-symbols-outlined"> warning </span>
             注意事項
           </div>
 
@@ -93,20 +105,21 @@
             class="citations"
           >
             <div class="citations-card">
-              <span class="material-symbols-rounded citations-icon"
-                >menu_book</span
-              >
-              <div class="citations-content">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined citations-icon"
+                  >menu_book</span
+                >
                 <span class="citations-label">參考來源</span>
-                <div class="citation-tags">
-                  <span
-                    v-for="(cite, i) in msg.citations"
-                    :key="i"
-                    class="citation-tag"
-                  >
-                    {{ cite }}
-                  </span>
-                </div>
+              </div>
+
+              <div class="citation-tags">
+                <span
+                  v-for="(cite, i) in msg.citations"
+                  :key="i"
+                  class="citation-tag"
+                >
+                  {{ cite }}
+                </span>
               </div>
             </div>
           </div>
@@ -125,7 +138,7 @@
               @click="handleAction(action)"
               :class="['action-btn', { emergency: msg.risk_level === 'high' }]"
             >
-              <span class="material-symbols-rounded">{{
+              <span class="material-symbols-outlined text-sm">{{
                 getActionMaterialIcon(action)
               }}</span>
               {{ action }}
@@ -150,8 +163,8 @@
     </div>
 
     <!-- 輸入區域 -->
-    <div class="chat-input-area bg-primary">
-      <div class="input-wrapper bg-white">
+    <div class="chat-input-area max-w-[800px] mx-auto">
+      <div class="input-wrapper bg-white mb-2">
         <input
           v-model="inputMessage"
           @keyup.enter="sendMessage"
@@ -164,29 +177,34 @@
           :disabled="!inputMessage.trim() || isLoading"
           class="send-btn bg-CTA"
         >
-          <span class="material-symbols-rounded text-text-100">
+          <span class="material-symbols-outlined text-white">
             {{ isLoading ? "hourglass_empty" : "send" }}
           </span>
         </button>
       </div>
-      <p class="disclaimer">
-        <span class="material-symbols-rounded">info</span>
+      <p class="disclaimer text-text-60">
+        <span class="material-symbols-outlined text-sm"> info </span>
         此 AI 助手僅供參考，如有緊急情況請立即就醫
       </p>
 
       <!-- 版本說明區塊 -->
-      <div class="version-info">
+      <div
+        class="version-info text-text-80 flex justify-end gap-2 items-center"
+      >
         <button @click="toggleVersionModal" class="version-button">
-          <span class="material-symbols-rounded">info</span>
           <span>版本 {{ versionInfo.version }}</span>
-          <span class="update-date">{{ versionInfo.last_update }}</span>
+          <span>{{ versionInfo.last_update }}</span>
         </button>
         <button
           @click="refreshKnowledge"
           class="refresh-button"
           title="重新載入知識庫"
         >
-          <span class="material-symbols-rounded">refresh</span>
+          <span
+            class="material-symbols-outlined text-base text-text-80 hover:text-text-primary"
+          >
+            refresh
+          </span>
         </button>
       </div>
 
@@ -728,17 +746,6 @@ async function scrollToBottom() {
   box-shadow: var(--shadow-soft);
 }
 
-.message-avatar .material-symbols-rounded {
-  font-size: 20px;
-  color: #ffff;
-}
-
-.message-avatar .avatar-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
 .message.user .message-avatar {
   background: var(--text-primary);
   border: 2px solid var(--primary-dark);
@@ -746,17 +753,19 @@ async function scrollToBottom() {
 
 .message-content {
   max-width: 75%;
-  padding: 14px 18px;
-  border-radius: 24px;
+  padding: 16px 20px;
+  border-radius: 36px;
+  background-color: #ffff;
   box-shadow: var(--shadow-soft);
   border: 2px solid var(--text-primary);
+  margin-top: 16px;
 }
 
 /* ========== 高風險訊息 ========== */
 .message.high-risk .message-content {
   color: #ffff;
-  background: var(--info);
-  border: 3px solid var(--risk-high-border);
+  background: #ffcece;
+  border: 2px solid var(--danger);
   box-shadow: 0 4px 12px rgba(87, 87, 87, 0.15);
 }
 
@@ -775,10 +784,6 @@ async function scrollToBottom() {
 .risk-badge.high {
   background: var(--danger);
   color: var(--risk-high-text);
-}
-
-.risk-badge.high .material-symbols-rounded {
-  font-size: 16px;
 }
 
 .risk-badge.medium {
@@ -809,7 +814,6 @@ async function scrollToBottom() {
 .message-text {
   line-height: 1.65;
   font-size: 0.92rem;
-  color: var(--text-primary);
 }
 
 .message.user .message-text {
@@ -817,11 +821,11 @@ async function scrollToBottom() {
 }
 
 .message.high-risk .message-text {
-  color: var(--risk-high-text);
+  color: var(--text-100);
 }
 
 .message.medium-risk .message-text {
-  color: var(--risk-medium-text);
+  color: var(--text-100);
 }
 
 /* ========== 來源引用 - 紙條風格 ========== */
@@ -830,7 +834,6 @@ async function scrollToBottom() {
 }
 
 .citations-card {
-  display: flex;
   align-items: flex-start;
   gap: 10px;
   background: var(--bg-color);
@@ -842,21 +845,15 @@ async function scrollToBottom() {
 
 .citations-icon {
   font-size: 18px;
-  color: var(--text-muted);
+  color: var(--text-80);
   margin-top: 2px;
 }
 
-.citations-content {
-  flex: 1;
-}
-
 .citations-label {
-  display: block;
   font-size: 0.7rem;
-  color: var(--text-40);
+  color: var(--text-80);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 6px;
 }
 
 .citation-tags {
@@ -871,7 +868,7 @@ async function scrollToBottom() {
   padding: 4px 10px;
   border-radius: 8px;
   font-size: 0.75rem;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   border: 2px solid var(--border-light);
 }
 
@@ -900,7 +897,7 @@ async function scrollToBottom() {
   padding: 8px 14px;
   border: 2px solid var(--border-light);
   border-radius: 20px;
-  background: var(--bg-secondary);
+  background: #c05c5c;
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.8rem;
@@ -978,31 +975,28 @@ async function scrollToBottom() {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 6px 6px 6px 20px;
-  border-radius: 28px;
-  border: 2px solid var(--border-light);
-  box-shadow: var(--shadow-soft);
+  padding: 8px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--text-primary);
   transition: all 0.25s ease-out;
 }
 
 .input-wrapper:focus-within {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-medium), 0 0 0 3px rgba(166, 123, 91, 0.15);
+  box-shadow: 0 0 6px rgba(3, 117, 216, 1);
 }
 
 .input-wrapper input {
   flex: 1;
-  padding: 12px 0;
   border: none;
   background: transparent;
   font-size: 0.95rem;
   font-family: inherit;
-  color: var(--text-primary);
+  color: var(--text-80);
   outline: none;
 }
 
 .input-wrapper input::placeholder {
-  color: var(--text-muted);
+  color: var(--text-40);
 }
 
 .send-btn {
@@ -1023,13 +1017,6 @@ async function scrollToBottom() {
   font-size: 20px;
 }
 
-.send-btn:hover:not(:disabled) {
-  background: var(--gradient-primary);
-  border-color: var(--primary);
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(166, 123, 91, 0.35);
-}
-
 .send-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -1042,8 +1029,6 @@ async function scrollToBottom() {
   gap: 6px;
   text-align: center;
   font-size: 0.72rem;
-  color: var(--text-muted);
-  margin: 12px 0 0;
 }
 
 .disclaimer .material-symbols-rounded {
@@ -1054,22 +1039,14 @@ async function scrollToBottom() {
 .version-info {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: var(--bg-color);
-  border-top: 1px solid var(--border-light);
 }
 
 .version-button {
-  flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
   background: transparent;
   border: none;
-  border-radius: 8px;
-  color: var(--text-40);
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -1084,13 +1061,7 @@ async function scrollToBottom() {
   font-size: 16px;
 }
 
-.update-date {
-  margin-left: auto;
-  opacity: 0.7;
-}
-
 .refresh-button {
-  padding: 8px;
   background: transparent;
   border: none;
   border-radius: 8px;
@@ -1100,13 +1071,8 @@ async function scrollToBottom() {
 }
 
 .refresh-button:hover {
-  background: var(--bg-secondary);
-  color: var(--primary);
+  color: var(--text-primary);
   transform: rotate(180deg);
-}
-
-.refresh-button .material-symbols-rounded {
-  font-size: 18px;
 }
 
 /* 版本彈窗 */
