@@ -1,6 +1,6 @@
-{
-  "version": "1.0.0",
-  "last_update": "2026-01-08",
+﻿{
+  "version": "1.1.0",
+  "last_update": "2026-01-14",
   "project": "Pet AI Assistant - 寵物健康智能助手",
   "knowledge_sources": [
     {
@@ -12,6 +12,16 @@
     }
   ],
   "update_records": [
+    {
+      "version": "1.1.0",
+      "date": "2026-01-14",
+      "changes": [
+        "✅ 修復知識庫編碼問題，確保中文正確顯示",
+        "✅ 優化知識條目，移除冗餘內容",
+        "✅ 新增快速測試機制",
+        "✅ 確認不改程式碼即可更新知識庫功能"
+      ]
+    },
     {
       "version": "1.0.0",
       "date": "2026-01-08",
@@ -29,15 +39,8 @@
     "risk_assessment": true,
     "citation_tracking": true,
     "anti_hallucination": true,
-    "multi_species": [
-      "dog",
-      "cat"
-    ],
-    "categories": [
-      "醫療",
-      "餵養",
-      "照護",
-      "禁忌"
-    ]
+    "dynamic_update": true,
+    "multi_species": ["dog", "cat"],
+    "categories": ["醫療急救", "餵養", "日常照護", "禁忌"]
   }
 }

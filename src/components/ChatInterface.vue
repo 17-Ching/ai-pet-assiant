@@ -1,7 +1,7 @@
 ﻿<template>
-  <div class="bg-[#C3D8E4] min-h-[100vh] relative">
+  <div class="bg-[#C3D8E4] min-h-[100vh]" ref="mainContainer">
     <!-- 頂部標題 -->
-    <header class="sticky top-0 left-0 w-full p-4 mb-10">
+    <header class="sticky top-0 left-0 w-full p-4 mb-10 z-10">
       <div
         class="bg-[#F3F7FA] rounded-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.1)] px-10 py-4 flex justify-between items-center"
       >
@@ -19,7 +19,11 @@
           <div class="profile-summary">
             <span class="profile-text">
               {{ petProfile.species === "dog" ? "🐕 狗狗" : "🐱 貓咪" }}
-              {{ petProfile.age ? ` · ${petProfile.age}` : "" }}
+              {{
+                petProfile.age
+                  ? ` · ${petProfile.age.toString().replace("歲", "")}歲`
+                  : ""
+              }}
               {{ petProfile.weight ? ` · ${petProfile.weight}kg` : "" }}
             </span>
           </div>
@@ -29,11 +33,11 @@
     </header>
 
     <!-- 對話區域 -->
-    <div ref="messagesContainer" class="max-w-[800px] mx-auto space-y-4">
+    <div class="max-w-[800px] mx-auto space-y-4 pb-[200px]">
       <!-- 歡迎訊息 -->
       <div
         v-if="messages.length === 0"
-        class="text-center flex flex-col justify-center items-center gap-6"
+        class="text-center flex flex-col justify-center items-center gap-6 translate-y-1/2"
       >
         <span class="material-symbols-outlined text-[40px] text-white">
           favorite
@@ -92,7 +96,7 @@
             v-else-if="msg.risk_level === 'medium'"
             class="risk-badge medium"
           >
-            <span class="material-symbols-outlined"> warning </span>
+            <span class="material-symbols-outlined text-sm"> warning </span>
             注意事項
           </div>
 
@@ -149,8 +153,10 @@
 
       <!-- 載入中狀態 -->
       <div v-if="isLoading" class="message assistant loading">
-        <div class="message-avatar">
-          <img src="/ai-pet icon.svg" alt="AI" class="avatar-image" />
+        <div
+          class="w-9 h-9 bg-CTA rounded-full flex items-center justify-center"
+        >
+          <span class="material-symbols-outlined text-white"> smart_toy </span>
         </div>
         <div class="message-content shadow-sm">
           <div class="typing-indicator">
@@ -163,7 +169,9 @@
     </div>
 
     <!-- 輸入區域 -->
-    <div class="chat-input-area max-w-[800px] mx-auto">
+    <div
+      class="chat-input-area max-w-[800px] mx-auto fixed left-1/2 -translate-x-1/2 bottom-0 w-full z-10"
+    >
       <div class="input-wrapper bg-white mb-2">
         <input
           v-model="inputMessage"
@@ -207,95 +215,101 @@
           </span>
         </button>
       </div>
-
-      <!-- 寵物資料設定彈窗 -->
-      <div
-        v-if="showPetProfileModal"
-        class="pet-modal-overlay"
-        @click="togglePetProfileModal"
-      >
-        <div class="pet-modal bg-primary" @click.stop>
-          <div class="modal-header text-white">
-            <h3>
-              <span class="material-symbols-outlined"> pets </span>
-              寵物資料設定
-            </h3>
-            <button @click="togglePetProfileModal" class="close-btn">
-              <span class="material-symbols-outlined"> close_small </span>
-            </button>
-          </div>
-          <div class="modal-content">
-            <div class="profile-form-modal">
-              <div class="form-group-modal">
-                <label>物種</label>
-                <select v-model="petProfile.species">
-                  <option value="dog">🐕 狗狗</option>
-                  <option value="cat">🐱 貓咪</option>
-                </select>
-              </div>
-              <div class="form-group-modal">
-                <label>年齡</label>
-                <input
-                  v-model="petProfile.age"
-                  type="text"
-                  placeholder="例：2歲"
-                />
-              </div>
-              <div class="form-group-modal">
-                <label>體重 (kg)</label>
-                <input
-                  v-model="petProfile.weight"
-                  type="number"
-                  placeholder="例：5"
-                />
-              </div>
-            </div>
-            <div class="modal-actions">
-              <button @click="togglePetProfileModal" class="confirm-btn">
-                <span class="material-symbols-rounded">check</span>
-                確定
-              </button>
-            </div>
-          </div>
+    </div>
+    <!-- 寵物資料設定彈窗 -->
+    <div
+      v-if="showPetProfileModal"
+      class="pet-modal-overlay"
+      @click="togglePetProfileModal"
+    >
+      <div class="pet-modal bg-primary" @click.stop>
+        <div class="modal-header text-white">
+          <h3>
+            <span class="material-symbols-outlined"> pets </span>
+            寵物資料設定
+          </h3>
+          <button @click="togglePetProfileModal" class="close-btn">
+            <span class="material-symbols-outlined"> close_small </span>
+          </button>
         </div>
-      </div>
-
-      <!-- 版本說明彈窗 -->
-      <div
-        v-if="showVersionModal"
-        class="version-modal-overlay"
-        @click="toggleVersionModal"
-      >
-        <div class="version-modal" @click.stop>
-          <div class="modal-header">
-            <h3>
-              <span class="material-symbols-rounded">history</span>
-              更新記錄
-            </h3>
-            <button @click="toggleVersionModal" class="close-btn">
-              <span class="material-symbols-rounded">close</span>
-            </button>
-          </div>
-          <div class="modal-content">
-            <div
-              v-for="(record, index) in versionInfo.update_records"
-              :key="index"
-              class="update-record"
-            >
-              <div class="record-header">
-                <span class="version-badge">v{{ record.version }}</span>
-                <span class="record-date">{{ record.date }}</span>
-              </div>
-              <ul class="change-list">
-                <li v-for="(change, i) in record.changes" :key="i">
-                  {{ change }}
-                </li>
-              </ul>
+        <div class="modal-content">
+          <div class="profile-form-modal">
+            <div class="form-group-modal">
+              <label>物種</label>
+              <select v-model="petProfile.species">
+                <option value="dog">🐕 狗狗</option>
+                <option value="cat">🐱 貓咪</option>
+              </select>
             </div>
+            <div class="form-group-modal">
+              <label>年齡</label>
+              <input
+                v-model="petProfile.age"
+                type="text"
+                placeholder="例：2"
+                @input="filterAgeInput"
+              />
+            </div>
+            <div class="form-group-modal">
+              <label>體重 (kg)</label>
+              <input
+                v-model="petProfile.weight"
+                type="number"
+                placeholder="例：5"
+              />
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button @click="togglePetProfileModal" class="confirm-btn">
+              <span class="material-symbols-rounded">check</span>
+              確定
+            </button>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- 版本說明彈窗 -->
+    <div
+      v-if="showVersionModal"
+      class="version-modal-overlay"
+      @click="toggleVersionModal"
+    >
+      <div class="version-modal" @click.stop>
+        <div class="modal-header">
+          <h3>
+            <span class="material-symbols-outlined"> history </span>
+            更新記錄
+          </h3>
+          <button @click="toggleVersionModal" class="close-btn">
+            <span class="material-symbols-outlined"> close_small </span>
+          </button>
+        </div>
+        <div class="modal-content">
+          <div
+            v-for="(record, index) in versionInfo.update_records"
+            :key="index"
+            class="update-record"
+          >
+            <div class="record-header">
+              <span class="version-badge">v{{ record.version }}</span>
+              <span class="record-date">{{ record.date }}</span>
+            </div>
+            <ul class="change-list">
+              <li v-for="(change, i) in record.changes" :key="i">
+                {{ change }}
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部遮罩 -->
+    <div class="fixed bottom-0 w-full h-[200px] linear"></div>
+
+    <!-- 頂部遮罩 -->
+    <div class="fixed top-0 w-full h-[160px] linear-top"></div>
   </div>
 </template>
 
@@ -308,7 +322,7 @@ import { getVersionInfo, clearCache } from "../services/knowledgeManager";
 const messages = ref([]);
 const inputMessage = ref("");
 const isLoading = ref(false);
-const messagesContainer = ref(null);
+const mainContainer = ref(null);
 
 // 版本資訊
 const versionInfo = ref({
@@ -330,7 +344,6 @@ const petProfile = ref({
 const quickQuestions = [
   "幼犬一天要餵幾餐？",
   "狗可以吃葡萄嗎？",
-  "貓咪多久洗一次澡？",
   "狗狗一直嘔吐怎麼辦？",
 ];
 
@@ -381,6 +394,9 @@ async function sendMessage() {
       isNew: true,
     });
 
+    // 立即滾動到底部
+    await scrollToBottom();
+
     // 移除動畫標記
     setTimeout(() => {
       const lastMsg = messages.value[messages.value.length - 1];
@@ -402,6 +418,12 @@ async function sendMessage() {
 // 寵物資料彈窗
 function togglePetProfileModal() {
   showPetProfileModal.value = !showPetProfileModal.value;
+}
+
+// 過濾年齡輸入，只允許數字
+function filterAgeInput(event) {
+  const value = event.target.value;
+  petProfile.value.age = value.replace(/[^0-9]/g, "");
 }
 
 // 版本資訊相關
@@ -457,9 +479,12 @@ function getActionMaterialIcon(action) {
 // 滾動到底部
 async function scrollToBottom() {
   await nextTick();
-  if (messagesContainer.value) {
-    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-  }
+  setTimeout(() => {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: "smooth",
+    });
+  }, 100);
 }
 </script>
 
@@ -753,12 +778,29 @@ async function scrollToBottom() {
 
 .message-content {
   max-width: 75%;
-  padding: 16px 20px;
+
   border-radius: 36px;
   background-color: #ffff;
   box-shadow: var(--shadow-soft);
   border: 2px solid var(--text-primary);
   margin-top: 16px;
+}
+
+/* 使用者對話框 - 獨特樣式 */
+.message.user .message-content {
+  background: linear-gradient(135deg, #f3f7fa 0%, #e8f1f8 100%);
+  border: 2px solid var(--text-primary);
+  box-shadow: 0 2px 8px rgba(166, 123, 91, 0.15);
+  border-radius: 60px 0 60px 60px;
+  padding: 12px 20px;
+}
+
+/* 機器人對話框 - 保持白色 */
+.message.assistant .message-content {
+  border-radius: 0 60px 60px 60px;
+  border: 2px solid var(--text-primary);
+  background: #9dcde9;
+  padding: 12px 20px 36px;
 }
 
 /* ========== 高風險訊息 ========== */
@@ -767,6 +809,11 @@ async function scrollToBottom() {
   background: #ffcece;
   border: 2px solid var(--danger);
   box-shadow: 0 4px 12px rgba(87, 87, 87, 0.15);
+}
+
+/* ========== 載入訊息 ========== */
+.message.loading .message-content {
+  padding: 12px 20px;
 }
 
 /* ========== 風險標籤 ========== */
@@ -787,7 +834,7 @@ async function scrollToBottom() {
 }
 
 .risk-badge.medium {
-  background: rgba(146, 64, 14, 0.1);
+  background: var(--alert);
   color: var(--risk-medium-text);
 }
 
@@ -841,6 +888,8 @@ async function scrollToBottom() {
   border-radius: 12px;
   border: 2px solid var(--border-light);
   border-left: 4px solid var(--primary);
+  background: rgba(255, 255, 255, 0.647);
+  border-left-color: white;
 }
 
 .citations-icon {
@@ -872,16 +921,6 @@ async function scrollToBottom() {
   border: 2px solid var(--border-light);
 }
 
-.message.high-risk .citations-card {
-  background: rgba(255, 255, 255, 0.647);
-  border-left-color: var(--risk-high-text);
-}
-
-.message.medium-risk .citations-card {
-  background: rgba(253, 230, 138, 0.3);
-  border-left-color: var(--risk-medium-text);
-}
-
 /* ========== 行動按鈕 ========== */
 .action-buttons {
   margin-top: 14px;
@@ -897,34 +936,28 @@ async function scrollToBottom() {
   padding: 8px 14px;
   border: 2px solid var(--border-light);
   border-radius: 20px;
-  background: #c05c5c;
-  color: var(--text-secondary);
+  background: var(--text-primary);
+  color: white;
   cursor: pointer;
   font-size: 0.8rem;
   font-family: inherit;
   transition: all 0.25s ease-out;
 }
 
-.action-btn .material-symbols-rounded {
-  font-size: 16px;
-}
-
 .action-btn:hover {
-  background: var(--user-bubble);
-  border-color: var(--primary);
-  color: var(--primary-dark);
+  background: #2565b3;
   transform: translateY(-1px);
 }
 
 .action-btn.emergency {
-  background: rgba(153, 27, 27, 0.1);
+  background: rgba(195, 71, 71, 0.8);
   border: 3px solid var(--risk-high-border);
   color: var(--risk-high-text);
   font-weight: 600;
 }
 
 .action-btn.emergency:hover {
-  background: rgba(153, 27, 27, 0.2);
+  background: rgba(195, 71, 71, 0.6);
 }
 
 /* ========== 載入中動畫 ========== */
@@ -965,11 +998,6 @@ async function scrollToBottom() {
 }
 
 /* ========== 輸入區域 ========== */
-.chat-input-area {
-  padding: 16px;
-  border-top: 2px solid var(--border-light);
-  box-shadow: 0 -2px 8px rgba(166, 123, 91, 0.06);
-}
 
 .input-wrapper {
   display: flex;
@@ -1097,7 +1125,7 @@ async function scrollToBottom() {
 }
 
 .version-modal {
-  background: var(--bg-secondary);
+  background: #ffff;
   border-radius: 16px;
   max-width: 500px;
   width: 90%;
@@ -1186,7 +1214,7 @@ async function scrollToBottom() {
 .version-badge {
   display: inline-block;
   padding: 4px 12px;
-  background: var(--gradient-primary);
+  background: var(--text-primary);
   color: white;
   border-radius: 12px;
   font-size: 0.85rem;
@@ -1194,14 +1222,14 @@ async function scrollToBottom() {
 }
 
 .record-date {
-  color: var(--text-muted);
+  color: var(--text-80);
   font-size: 0.8rem;
 }
 
 .change-list {
   margin: 0;
   padding-left: 24px;
-  color: var(--text-secondary);
+  color: var(--text-80);
   font-size: 0.9rem;
   line-height: 1.8;
 }
@@ -1251,5 +1279,25 @@ async function scrollToBottom() {
 
 .chat-messages::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/*  底部遮罩漸層 */
+.linear {
+  background: linear-gradient(
+    0deg,
+    #c3d8e4 0%,
+    rgba(195, 216, 228, 1) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+}
+
+.linear-top {
+  background: linear-gradient(
+    0deg,
+    #c3d8e4 0%,
+    rgba(195, 216, 228, 1) 60%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: rotate(180deg);
 }
 </style>

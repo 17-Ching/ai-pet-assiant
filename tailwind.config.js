@@ -9,6 +9,7 @@ export default {
         info: "var(--info)",
         warning: "var(--warning)",
         danger: "var(--danger)",
+        alert: "var(--alert)",
         "text-primary": "var(--text-primary)",
         "text-secondary": "var(--text-secondary)",
         "text-100": "var(--text-100)",
