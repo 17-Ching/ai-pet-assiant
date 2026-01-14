@@ -37,7 +37,7 @@
       <!-- 歡迎訊息 -->
       <div
         v-if="messages.length === 0"
-        class="text-center flex flex-col justify-center items-center gap-6 translate-y-1/2"
+        class="text-center flex flex-col justify-center items-center gap-6"
       >
         <span class="material-symbols-outlined text-[40px] text-white">
           favorite
@@ -261,7 +261,7 @@
           </div>
           <div class="modal-actions">
             <button @click="togglePetProfileModal" class="confirm-btn">
-              <span class="material-symbols-rounded">check</span>
+              <span class="material-symbols-outlined">check</span>
               確定
             </button>
           </div>
@@ -778,17 +778,13 @@ async function scrollToBottom() {
 
 .message-content {
   max-width: 75%;
-
-  border-radius: 36px;
-  background-color: #ffff;
-  box-shadow: var(--shadow-soft);
   border: 2px solid var(--text-primary);
   margin-top: 16px;
 }
 
 /* 使用者對話框 - 獨特樣式 */
 .message.user .message-content {
-  background: linear-gradient(135deg, #f3f7fa 0%, #e8f1f8 100%);
+  background: #9dcde9;
   border: 2px solid var(--text-primary);
   box-shadow: 0 2px 8px rgba(166, 123, 91, 0.15);
   border-radius: 60px 0 60px 60px;
@@ -799,7 +795,7 @@ async function scrollToBottom() {
 .message.assistant .message-content {
   border-radius: 0 60px 60px 60px;
   border: 2px solid var(--text-primary);
-  background: #9dcde9;
+  background: #ffff;
   padding: 12px 20px 36px;
 }
 
@@ -864,7 +860,7 @@ async function scrollToBottom() {
 }
 
 .message.user .message-text {
-  color: var(--primary-dark);
+  color: var(--primary-100);
 }
 
 .message.high-risk .message-text {
@@ -888,7 +884,7 @@ async function scrollToBottom() {
   border-radius: 12px;
   border: 2px solid var(--border-light);
   border-left: 4px solid var(--primary);
-  background: rgba(255, 255, 255, 0.647);
+  background: rgb(255, 230, 167);
   border-left-color: white;
 }
 
@@ -936,7 +932,7 @@ async function scrollToBottom() {
   padding: 8px 14px;
   border: 2px solid var(--border-light);
   border-radius: 20px;
-  background: var(--text-primary);
+  background: var(--info);
   color: white;
   cursor: pointer;
   font-size: 0.8rem;

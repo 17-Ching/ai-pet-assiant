@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "api": "node api-server.js",
+    "test": "node test-with-logs.js",
     "start:all": "concurrently \"npm run dev\" \"npm run api\""
   },
   "dependencies": {

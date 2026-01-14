@@ -37,33 +37,43 @@ export async function loadKnowledgeBase() {
  * @returns {Object} { isHighRisk: boolean, riskType: string, matchedKeywords: string[] }
  */
 export function riskAssessment(message) {
-  const criticalKeywords = [
-    "抽搐",
-    "發紫",
-    "大量出血",
-    "意識不清",
-    "昏迷",
-    "無法呼吸",
-    "呼吸停止",
-    "呼吸急促",
-  ];
-  const poisoningKeywords = [
-    "誤食",
-    "中毒",
-    "吃到清潔劑",
-    "農藥",
-    "殺蟲劑",
-    "老鼠藥",
-  ];
-  const toxicFoods = [
-    "葡萄",
-    "巧克力",
-    "洋蔥",
-    "大蒜",
-    "木糖醇",
-    "酒精",
-    "咖啡因",
-  ];
+  const knowledgeBase = getKnowledgeBase();
+
+  // 從知識庫讀取緊急關鍵字，如果沒有則使用預設值
+  const criticalKeywords = knowledgeBase?.emergency_keywords?.critical
+    ?.keywords ||
+    knowledgeBase?.emergency_keywords?.critical || [
+      "抽搐",
+      "發紫",
+      "大量出血",
+      "意識不清",
+      "昏迷",
+      "無法呼吸",
+      "呼吸停止",
+      "呼吸急促",
+    ];
+  const poisoningKeywords = knowledgeBase?.emergency_keywords?.poisoning
+    ?.keywords ||
+    knowledgeBase?.emergency_keywords?.poisoning || [
+      "誤食",
+      "中毒",
+      "吃到清潔劑",
+      "農藥",
+      "殺蟲劑",
+      "老鼠藥",
+      "吃了",
+      "吃到",
+    ];
+  const toxicFoods = knowledgeBase?.emergency_keywords?.toxic_foods?.keywords ||
+    knowledgeBase?.emergency_keywords?.toxic_foods || [
+      "葡萄",
+      "巧克力",
+      "洋蔥",
+      "大蒜",
+      "木糖醇",
+      "酒精",
+      "咖啡因",
+    ];
   const severeSymptoms = [
     "持續嘔吐",
     "嘔吐超過",
@@ -73,6 +83,14 @@ export function riskAssessment(message) {
     "無法站立",
   ];
 
+  // 檢查是否為詢問句（不是緊急情況）
+  const isQuestion =
+    message.includes("可以") ||
+    message.includes("能不能") ||
+    message.includes("？") ||
+    message.includes("嗎") ||
+    message.includes("是否");
+
   const matchedCritical = criticalKeywords.filter((kw) => message.includes(kw));
   const matchedPoisoning = poisoningKeywords.filter((kw) =>
     message.includes(kw)
@@ -81,10 +99,11 @@ export function riskAssessment(message) {
   const matchedSevere = severeSymptoms.filter((kw) => message.includes(kw));
 
   // 判定是否為高風險
+  // 如果是詢問句且只匹配到有毒食物，不視為緊急情況
   const isHighRisk =
     matchedCritical.length > 0 ||
     matchedPoisoning.length > 0 ||
-    matchedToxic.length > 0 ||
+    (matchedToxic.length > 0 && !isQuestion) ||
     matchedSevere.length > 0;
 
   let riskType = "normal";
@@ -151,15 +170,16 @@ function buildPrompt({ message, petProfile, relevantKnowledge, riskInfo }) {
       ? relevantKnowledge
           .map((k) => `【${k.topic}】${k.content}（來源：${k.source}）`)
           .join("\n")
-      : "無相關知識";
+      : "（知識庫中無相關資訊，請根據你的專業知識提供建議，但務必提醒飼主若有疑慮應諮詢獸醫）";
 
   const systemPrompt = `你是一個專業的寵物健康 AI 助手。請根據以下規則回答問題：
 
 ## 重要規則
-1. **嚴禁編造**：你只能根據下方「知識庫內容」回答。若無相關資訊，必須回覆：「抱歉，目前知識庫中沒有相關資訊，為了寵物安全，我不提供未經證實的建議。」
-2. **必須引用來源**：回答時必須在末尾標註資訊來源。
+1. **專業建議**：根據知識庫內容回答。若知識庫無相關資訊，可提供一般性的專業建議，但務必提醒飼主若有疑慮應諮詢專業獸醫師。
+2. **必須引用來源**：若使用知識庫內容，必須在末尾標註資訊來源。
 3. **高風險優先**：若涉及緊急情況（抽搐、中毒、大量出血等），第一句話必須是「⚠️ 緊急建議：請立即就醫！」
 4. **禁忌食物警告**：提及葡萄、巧克力、洋蔥等禁忌食物時，必須明確給出中毒風險警告。
+5. **安全第一**：當不確定時，優先建議諮詢專業獸醫師。
 
 ## 寵物資料
 - 物種：${
@@ -199,7 +219,7 @@ async function callGeminiAPI(prompt) {
   try {
     const ai = getGenAI();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-flash-lite",
       contents: prompt,
       generationConfig: {
         temperature: 0.3,
@@ -251,28 +271,24 @@ export async function chat({ pet_profile, message }) {
     riskInfo,
   });
 
-  // 6. 處理無知識庫匹配的情況（防幻覺）
-  if (relevantKnowledge.length === 0 && !riskInfo.isHighRisk) {
-    return {
-      answer:
-        "抱歉，目前知識庫中沒有相關資訊，為了寵物安全，我不提供未經證實的建議。建議您諮詢專業獸醫師。",
-      citations: [],
-      risk_level: "low",
-      suggested_next_actions: ["諮詢專業獸醫師", "查閱官方寵物照護資源"],
-    };
-  }
-
-  // 7. 高風險情況強制回應
+  // 6. 高風險情況強制回應
   if (riskInfo.isHighRisk) {
     const toxicKnowledge = relevantKnowledge.filter(
       (k) => k.risk_level === "high"
     );
-    const citations = toxicKnowledge.map((k) => k.source);
-    const additionalInfo = toxicKnowledge.map((k) => k.content).join(" ");
+
+    // 只使用第一個最相關的高風險條目，避免回答過長
+    const primaryKnowledge = toxicKnowledge[0];
+    const citations = primaryKnowledge
+      ? [primaryKnowledge.source]
+      : ["寵物急診臨床規範"];
+    const additionalInfo = primaryKnowledge
+      ? primaryKnowledge.content
+      : "這是高風險情況";
 
     return {
       answer: `⚠️ 緊急建議：請立即就醫！\n\n${additionalInfo}\n\n這是緊急情況，請立即聯繫最近的動物醫院。時間就是生命，請不要延誤！`,
-      citations: citations.length > 0 ? citations : ["寵物急診臨床規範"],
+      citations: citations,
       risk_level: "high",
       suggested_next_actions: [
         "立即撥打動物急診專線",
@@ -283,10 +299,15 @@ export async function chat({ pet_profile, message }) {
     };
   }
 
-  // 8. 一般情況呼叫 Gemini API
+  // 7. 一般情況呼叫 Gemini API（包含無知識庫匹配的情況）
   try {
     const aiResponse = await callGeminiAPI(prompt);
     const citations = relevantKnowledge.map((k) => k.source);
+
+    // 如果沒有知識庫資料，說明這是 Gemini 的純 AI 回應
+    if (citations.length === 0) {
+      citations.push("Gemini AI 助手");
+    }
 
     // 根據知識庫內容決定建議行動
     let suggested_next_actions = ["定期觀察寵物狀況"];
@@ -295,6 +316,13 @@ export async function chat({ pet_profile, message }) {
         "持續觀察症狀變化",
         "若情況惡化請就醫",
         "記錄症狀發生時間",
+      ];
+    } else if (relevantKnowledge.length === 0) {
+      // 沒有知識庫匹配時，建議諮詢獸醫
+      suggested_next_actions = [
+        "建議諮詢專業獸醫師",
+        "定期觀察寵物狀況",
+        "如有疑慮請立即就醫",
       ];
     }
 
@@ -327,8 +355,18 @@ export async function chat({ pet_profile, message }) {
       };
     }
 
-    // 完全沒有知識庫資料時才拋出錯誤
-    throw new Error("無法取得回應，且知識庫中沒有相關資訊");
+    // 完全沒有知識庫資料且 API 失敗時，返回無法回應訊息
+    return {
+      answer:
+        "⚠️ 抱歉，目前無法連接 AI 服務，且知識庫中沒有相關資訊。為了寵物安全，建議您直接諮詢專業獸醫師。",
+      citations: [],
+      risk_level: "low",
+      suggested_next_actions: [
+        "諮詢專業獸醫師",
+        "搜尋官方寵物照護資源",
+        "記錄寵物症狀以便就醫時提供",
+      ],
+    };
   }
 }
 
