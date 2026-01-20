@@ -1,6 +1,6 @@
-﻿{
-  "version": "1.1.0",
-  "last_update": "2026-01-14",
+{
+  "version": "1.6.0",
+  "last_update": "2026-01-20",
   "project": "Pet AI Assistant - 寵物健康智能助手",
   "knowledge_sources": [
     {
@@ -12,6 +12,34 @@
     }
   ],
   "update_records": [
+    {
+      "version": "1.6.0",
+      "date": "2026-01-20",
+      "changes": [
+        "- 更改項目"
+      ]
+    },
+    {
+      "version": "1.5.0",
+      "date": "2026-01-20",
+      "changes": [
+        "- 測試"
+      ]
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-01-20",
+      "changes": [
+        "- 測試"
+      ]
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-01-20",
+      "changes": [
+        "- 新增測試"
+      ]
+    },
     {
       "version": "1.1.0",
       "date": "2026-01-14",
@@ -40,7 +68,15 @@
     "citation_tracking": true,
     "anti_hallucination": true,
     "dynamic_update": true,
-    "multi_species": ["dog", "cat"],
-    "categories": ["醫療急救", "餵養", "日常照護", "禁忌"]
+    "multi_species": [
+      "dog",
+      "cat"
+    ],
+    "categories": [
+      "醫療急救",
+      "餵養",
+      "日常照護",
+      "禁忌"
+    ]
   }
 }

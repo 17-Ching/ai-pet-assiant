@@ -5,10 +5,20 @@
       <div
         class="bg-[#F3F7FA] rounded-[20px] shadow-[0_4px_16px_rgba(0,0,0,0.1)] px-10 py-4 flex justify-between items-center"
       >
-        <!-- logo -->
-        <div class="flex gap-4 items-center font-bold">
-          <img src="/ai-pet icon.svg" alt="logo" />
-          <span class="text-text-primary text-[24px]">寵物 AI 智能助手</span>
+        <div class="flex items-center gap-4">
+          <!-- logo -->
+          <div class="flex gap-4 items-center font-bold">
+            <img src="/ai-pet icon.svg" alt="logo" />
+            <span class="text-text-primary text-[24px]">寵物 AI 智能助手</span>
+          </div>
+
+          <button
+            @click="$emit('openAdmin')"
+            class="bg-primary flex text-white px-4 py-1 rounded-full gap-3 items-center h-fit hover:bg-CTA transition"
+            title="管理後台"
+          >
+            <span class="text-base text-white">登入後台 </span>
+          </button>
         </div>
 
         <!-- 寵物資料設定 -->
@@ -318,6 +328,9 @@ import { ref, nextTick, onMounted } from "vue";
 import { chat, loadKnowledgeBase } from "../services/geminiService";
 import { getVersionInfo, clearCache } from "../services/knowledgeManager";
 
+// 定義 emit
+const emit = defineEmits(["openAdmin"]);
+
 // 狀態
 const messages = ref([]);
 const inputMessage = ref("");
@@ -494,7 +507,11 @@ async function scrollToBottom() {
 
 /* Material Icons 樣式 */
 .material-symbols-rounded {
-  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  font-variation-settings:
+    "FILL" 0,
+    "wght" 400,
+    "GRAD" 0,
+    "opsz" 24;
   vertical-align: middle;
 }
 
@@ -1063,6 +1080,19 @@ async function scrollToBottom() {
 .version-info {
   display: flex;
   align-items: center;
+}
+
+.version-button,
+.refresh-button,
+.admin-button {
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .version-button {

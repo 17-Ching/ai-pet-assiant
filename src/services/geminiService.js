@@ -93,7 +93,7 @@ export function riskAssessment(message) {
 
   const matchedCritical = criticalKeywords.filter((kw) => message.includes(kw));
   const matchedPoisoning = poisoningKeywords.filter((kw) =>
-    message.includes(kw)
+    message.includes(kw),
   );
   const matchedToxic = toxicFoods.filter((kw) => message.includes(kw));
   const matchedSevere = severeSymptoms.filter((kw) => message.includes(kw));
@@ -136,27 +136,49 @@ export function searchKnowledge(query, species = null) {
 
   const queryLower = query.toLowerCase();
 
-  return knowledgeBase.entries.filter((entry) => {
-    // 關鍵字匹配
-    const keywordMatch = entry.keywords?.some(
-      (kw) => query.includes(kw) || kw.includes(queryLower)
-    );
+  const results = knowledgeBase.entries
+    .map((entry) => {
+      let score = 0;
 
-    // 主題匹配
-    const topicMatch =
-      query.includes(entry.topic) || entry.topic.includes(query);
+      // 完整標題匹配（最高分）
+      if (entry.topic === query || entry.topic.toLowerCase() === queryLower) {
+        score += 100;
+      }
+      // 標題包含查詢
+      else if (entry.topic.includes(query) || query.includes(entry.topic)) {
+        score += 50;
+      }
+      // 標題部分匹配
+      else if (
+        queryLower.includes(entry.topic.toLowerCase()) ||
+        entry.topic.toLowerCase().includes(queryLower)
+      ) {
+        score += 30;
+      }
 
-    // 內容匹配
-    const contentMatch =
-      entry.content.split("").some((char) => query.includes(char)) &&
-      query.length > 2;
+      // 關鍵字精確匹配
+      const keywordMatch = entry.keywords?.some(
+        (kw) => query.includes(kw) || queryLower.includes(kw.toLowerCase()),
+      );
+      if (keywordMatch) score += 40;
 
-    // 物種過濾
-    const speciesMatch =
-      !species || !entry.species || entry.species.includes(species);
+      // 內容匹配
+      if (query.length > 2 && entry.content.includes(query)) {
+        score += 20;
+      }
 
-    return (keywordMatch || topicMatch) && speciesMatch;
-  });
+      // 物種過濾（不匹配則分數為0）
+      if (species && entry.species && !entry.species.includes(species)) {
+        score = 0;
+      }
+
+      return { entry, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.entry);
+
+  return results;
 }
 
 /**
@@ -168,31 +190,41 @@ function buildPrompt({ message, petProfile, relevantKnowledge, riskInfo }) {
   const knowledgeContext =
     relevantKnowledge.length > 0
       ? relevantKnowledge
-          .map((k) => `【${k.topic}】${k.content}（來源：${k.source}）`)
-          .join("\n")
-      : "（知識庫中無相關資訊，請根據你的專業知識提供建議，但務必提醒飼主若有疑慮應諮詢獸醫）";
+          .map(
+            (k, idx) =>
+              `${idx + 1}. 【${k.topic}】\n   內容：${k.content}\n   來源：${k.source}`,
+          )
+          .join("\n\n")
+      : "（知識庫中無相關資訊）";
+
+  const hasKnowledge = relevantKnowledge.length > 0;
 
   const systemPrompt = `你是一個專業的寵物健康 AI 助手。請根據以下規則回答問題：
 
-## 重要規則
-1. **專業建議**：根據知識庫內容回答。若知識庫無相關資訊，可提供一般性的專業建議，但務必提醒飼主若有疑慮應諮詢專業獸醫師。
-2. **必須引用來源**：若使用知識庫內容，必須在末尾標註資訊來源。
-3. **高風險優先**：若涉及緊急情況（抽搐、中毒、大量出血等），第一句話必須是「⚠️ 緊急建議：請立即就醫！」
-4. **禁忌食物警告**：提及葡萄、巧克力、洋蔥等禁忌食物時，必須明確給出中毒風險警告。
-5. **安全第一**：當不確定時，優先建議諮詢專業獸醫師。
+## 🚨 最重要規則
+${
+  hasKnowledge
+    ? `1. **嚴格使用知識庫內容**：我已經為你檢索到 ${relevantKnowledge.length} 筆相關知識，你必須完全基於這些知識來回答，不要添加知識庫以外的資訊。
+2. **直接回答**：用知識庫的內容直接回答問題，不要說「根據知識庫」或「資料顯示」這類開場白。
+3. **必須引用來源**：回答結尾處標註「📚 資料來源：${relevantKnowledge.map((k) => k.source).join("、")}」`
+    : `1. **專業建議**：知識庫中無相關資訊，請根據你的專業知識提供建議。
+2. **提醒諮詢**：務必提醒飼主若有疑慮應諮詢專業獸醫師。`
+}
+4. **高風險優先**：若涉及緊急情況（抽搐、中毒、大量出血等），第一句話必須是「⚠️ 緊急建議：請立即就醫！」
+5. **禁忌食物警告**：提及葡萄、巧克力、洋蔥等禁忌食物時，必須明確給出中毒風險警告。
 
 ## 寵物資料
 - 物種：${
     petProfile.species === "dog"
       ? "狗"
       : petProfile.species === "cat"
-      ? "貓"
-      : petProfile.species || "未知"
+        ? "貓"
+        : petProfile.species || "未知"
   }
 - 年齡：${petProfile.age || "未知"}
 - 體重：${petProfile.weight || "未知"} 公斤
 
-## 知識庫內容
+## 知識庫檢索結果
 ${knowledgeContext}
 
 ## 風險評估
@@ -205,7 +237,7 @@ ${
 ## 使用者問題
 ${message}
 
-請以繁體中文回答，語氣親切專業。`;
+${hasKnowledge ? "請直接使用上述知識庫內容回答，用親切專業的語氣，繁體中文。" : "請以繁體中文回答，語氣親切專業。"}`;
 
   return systemPrompt;
 }
@@ -253,7 +285,30 @@ export async function chat({ pet_profile, message }) {
   // 3. 搜尋相關知識
   const relevantKnowledge = searchKnowledge(message, pet_profile?.species);
 
-  // 4. 決定風險等級
+  // 調試日誌
+  console.log("🔍 檢索結果:", {
+    message,
+    species: pet_profile?.species,
+    foundCount: relevantKnowledge.length,
+    topics: relevantKnowledge.map((k) => k.topic),
+  });
+
+  // 4. 如果找到知識庫內容，直接使用不要問 AI
+  if (relevantKnowledge.length > 0 && !riskInfo.isHighRisk) {
+    console.log("✅ 使用知識庫直接回答");
+    const primaryKnowledge = relevantKnowledge[0];
+    const answer = primaryKnowledge.content;
+    const citations = relevantKnowledge.map((k) => k.source);
+
+    return {
+      answer: answer + `\n\n📚 資料來源：${citations.join("、")}`,
+      citations: citations,
+      risk_level: primaryKnowledge.risk_level || "low",
+      suggested_next_actions: ["定期觀察寵物狀況", "如有疑慮請諮詢獸醫"],
+    };
+  }
+
+  // 5. 決定風險等級
   let risk_level = "low";
   if (riskInfo.isHighRisk) {
     risk_level = "high";
@@ -263,7 +318,7 @@ export async function chat({ pet_profile, message }) {
     risk_level = "high";
   }
 
-  // 5. 建構 Prompt
+  // 6. 建構 Prompt
   const prompt = buildPrompt({
     message,
     petProfile: pet_profile || {},
@@ -271,10 +326,10 @@ export async function chat({ pet_profile, message }) {
     riskInfo,
   });
 
-  // 6. 高風險情況強制回應
+  // 7. 高風險情況強制回應
   if (riskInfo.isHighRisk) {
     const toxicKnowledge = relevantKnowledge.filter(
-      (k) => k.risk_level === "high"
+      (k) => k.risk_level === "high",
     );
 
     // 只使用第一個最相關的高風險條目，避免回答過長
@@ -404,7 +459,7 @@ export async function chatMock({ pet_profile, message }) {
   // 高風險情況
   if (riskInfo.isHighRisk) {
     const toxicKnowledge = relevantKnowledge.filter(
-      (k) => k.risk_level === "high"
+      (k) => k.risk_level === "high",
     );
     const citations = toxicKnowledge.map((k) => k.source);
     const additionalInfo =

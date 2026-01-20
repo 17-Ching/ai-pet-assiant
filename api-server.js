@@ -5,10 +5,11 @@
 
 import express from "express";
 import cors from "cors";
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync, copyFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { GoogleGenAI } from "@google/genai";
+import multer from "multer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -37,6 +38,12 @@ if (GEMINI_API_KEY) {
 app.use(cors());
 app.use(express.json());
 
+// 設定檔案上傳（使用記憶體儲存）
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB 限制
+});
+
 // 載入知識庫（模擬）
 let knowledgeBase = null;
 try {
@@ -48,7 +55,7 @@ try {
   console.log(
     "✅ 知識庫載入成功:",
     knowledgeBase.entries?.length || 0,
-    "筆資料"
+    "筆資料",
   );
 } catch (error) {
   console.error("❌ 知識庫載入失敗:", error.message);
@@ -175,6 +182,259 @@ app.get("/knowledge", (req, res) => {
 });
 
 /**
+ * API 端點：從 PDF 檔案提取知識條目
+ */
+app.post("/api/extract-knowledge", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "未上傳檔案" });
+    }
+
+    if (!genAI) {
+      return res.status(503).json({
+        error: "Gemini API 未初始化，無法處理 PDF 檔案",
+        hint: "請設定 GEMINI_API_KEY 環境變數",
+      });
+    }
+
+    const file = req.file;
+
+    // 將檔案上傳到 Gemini File API
+    console.log(
+      `📄 正在處理 PDF: ${file.originalname} (${(file.size / 1024).toFixed(2)} KB)`,
+    );
+
+    const uploadResult = await genAI.fileManager.uploadFile(file.buffer, {
+      mimeType: file.mimetype,
+      displayName: file.originalname,
+    });
+
+    console.log(`✅ 檔案已上傳到 Gemini: ${uploadResult.file.name}`);
+
+    // 使用 Gemini 分析並提取知識
+    const prompt = `
+請分析這份寵物健康文件，並提取出結構化的知識條目。
+
+請以 JSON 格式返回，包含以下欄位：
+- id: 唯一識別碼（使用 "pdf-" 前綴加上序號）
+- category: 類別（醫療急救、餵養、日常照護、禁忌 其中之一）
+- topic: 標題（簡短明確）
+- keywords: 關鍵字陣列（3-8個相關詞彙）
+- content: 詳細內容（保留重要資訊）
+- source: 來源（使用檔案名稱）
+- species: 適用物種陣列（["dog"] 或 ["cat"] 或 ["dog", "cat"]）
+- risk_level: 風險等級（"low", "medium", "high"）
+
+請返回 JSON 陣列格式，例如：
+[
+  {
+    "id": "pdf-001",
+    "category": "餵養",
+    "topic": "幼犬營養需求",
+    "keywords": ["幼犬", "營養", "餵食", "成長"],
+    "content": "詳細內容...",
+    "source": "${file.originalname}",
+    "species": ["dog"],
+    "risk_level": "low"
+  }
+]
+`;
+
+    const model = genAI.models.generateContent({
+      model: "gemini-2.0-flash-exp",
+      contents: [
+        { text: prompt },
+        {
+          fileData: {
+            mimeType: uploadResult.file.mimeType,
+            fileUri: uploadResult.file.uri,
+          },
+        },
+      ],
+    });
+
+    const result = await model;
+    const responseText = result.response.text();
+
+    // 提取 JSON（移除可能的 markdown 標記）
+    let jsonText = responseText.trim();
+    if (jsonText.startsWith("```json")) {
+      jsonText = jsonText.replace(/^```json\n/, "").replace(/\n```$/, "");
+    } else if (jsonText.startsWith("```")) {
+      jsonText = jsonText.replace(/^```\n/, "").replace(/\n```$/, "");
+    }
+
+    const entries = JSON.parse(jsonText);
+
+    console.log(`✅ 成功提取 ${entries.length} 筆知識條目`);
+
+    res.json({
+      success: true,
+      entries: entries,
+      file_info: {
+        name: file.originalname,
+        size: file.size,
+        type: file.mimetype,
+      },
+    });
+  } catch (error) {
+    console.error("❌ PDF 處理失敗:", error);
+    res.status(500).json({
+      error: "PDF 處理失敗",
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * API 端點：儲存知識庫
+ */
+app.post("/api/knowledge/save", async (req, res) => {
+  try {
+    const { version, last_update, entries, updateNotes } = req.body;
+
+    if (!version || !entries || !Array.isArray(entries)) {
+      return res.status(400).json({
+        error: "缺少必要欄位：version, entries",
+      });
+    }
+
+    // 準備新的知識庫資料
+    const knowledgePath = join(__dirname, "public", "knowledge.json");
+    const manifestPath = join(__dirname, "public", "manifest.json");
+
+    // 1. 備份現有知識庫
+    const timestamp = new Date().toISOString().replace(/:/g, "-").split(".")[0];
+    const backupPath = join(
+      __dirname,
+      "public",
+      `knowledge_backup_${timestamp}.json`,
+    );
+
+    try {
+      copyFileSync(knowledgePath, backupPath);
+      console.log(`✅ 已備份知識庫: knowledge_backup_${timestamp}.json`);
+    } catch (backupError) {
+      console.warn("⚠️  備份失敗（檔案可能不存在）:", backupError.message);
+    }
+
+    // 2. 載入現有的 manifest
+    let manifest = {};
+    try {
+      const manifestContent = readFileSync(manifestPath, "utf-8");
+      manifest = JSON.parse(manifestContent.replace(/^\uFEFF/, ""));
+    } catch (error) {
+      console.warn("⚠️  無法載入 manifest，將建立新的");
+      manifest = {
+        version: "1.0.0",
+        project: "Pet AI Assistant - 寵物健康智能助手",
+        knowledge_sources: [
+          {
+            id: "main-knowledge",
+            type: "json",
+            path: "/knowledge.json",
+            enabled: true,
+            description: "主要寵物健康知識庫",
+          },
+        ],
+        update_records: [],
+        features: {
+          risk_assessment: true,
+          citation_tracking: true,
+          anti_hallucination: true,
+          dynamic_update: true,
+          multi_species: ["dog", "cat"],
+          categories: ["醫療急救", "餵養", "日常照護", "禁忌"],
+        },
+      };
+    }
+
+    // 3. 更新 manifest
+    manifest.version = version;
+    manifest.last_update = last_update;
+
+    // 添加更新記錄
+    const changes = updateNotes
+      ? updateNotes.split("\n").filter((line) => line.trim())
+      : [`更新知識庫，共 ${entries.length} 筆條目`];
+
+    manifest.update_records.unshift({
+      version: version,
+      date: last_update,
+      changes: changes,
+    });
+
+    // 保留最近 10 筆更新記錄
+    if (manifest.update_records.length > 10) {
+      manifest.update_records = manifest.update_records.slice(0, 10);
+    }
+
+    // 4. 準備新的知識庫資料
+    const newKnowledgeBase = {
+      version: version,
+      last_update: last_update,
+      categories: {
+        醫療急救: { description: "寵物醫療急救相關知識" },
+        餵養: { description: "寵物餵養與營養相關" },
+        日常照護: { description: "日常清潔照護與環境管理" },
+        禁忌: { description: "寵物飲食與行為禁忌事項" },
+      },
+      entries: entries,
+      emergency_keywords: knowledgeBase?.emergency_keywords || {
+        critical: {
+          keywords: [
+            "抽搐",
+            "發紫",
+            "大量出血",
+            "意識不清",
+            "昏迷",
+            "無法呼吸",
+          ],
+          risk_level: "high",
+        },
+        poisoning: {
+          keywords: ["誤食", "中毒", "吃到", "農藥", "清潔劑"],
+          risk_level: "high",
+        },
+        toxic_foods: {
+          keywords: ["葡萄", "巧克力", "洋蔥", "大蒜", "木糖醇"],
+          risk_level: "high",
+        },
+      },
+    };
+
+    // 5. 寫入新的知識庫和 manifest
+    writeFileSync(
+      knowledgePath,
+      JSON.stringify(newKnowledgeBase, null, 2),
+      "utf-8",
+    );
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), "utf-8");
+
+    // 6. 重新載入知識庫到記憶體
+    knowledgeBase = newKnowledgeBase;
+
+    console.log(
+      `✅ 知識庫已更新: 版本 ${version}, 共 ${entries.length} 筆條目`,
+    );
+
+    res.json({
+      success: true,
+      message: "知識庫儲存成功",
+      version: version,
+      entry_count: entries.length,
+      backupFile: `knowledge_backup_${timestamp}.json`,
+    });
+  } catch (error) {
+    console.error("❌ 知識庫儲存失敗:", error);
+    res.status(500).json({
+      error: "知識庫儲存失敗",
+      message: error.message,
+    });
+  }
+});
+
+/**
  * 生成回應（使用 Gemini API）
  */
 async function generateResponse(message, petProfile) {
@@ -224,7 +484,7 @@ async function generateResponse(message, petProfile) {
       // 對中文關鍵字，直接用原始 message 匹配
       // 對英文關鍵字，使用 lowerMessage 匹配
       const matched = keywords.some(
-        (kw) => message.includes(kw) || lowerMessage.includes(kw.toLowerCase())
+        (kw) => message.includes(kw) || lowerMessage.includes(kw.toLowerCase()),
       );
       if (matched) {
         console.log(`✅ 匹配到知識庫項目: ${entry.topic || entry.question}`);
@@ -319,7 +579,7 @@ ${contextInfo}
         const knowledgeAnswer = match[1].trim();
         answer = petInfo + knowledgeAnswer;
         console.log(
-          `✅ 成功提取知識庫答案: ${knowledgeAnswer.substring(0, 50)}...`
+          `✅ 成功提取知識庫答案: ${knowledgeAnswer.substring(0, 50)}...`,
         );
       } else {
         console.log(`❌ 無法從 contextInfo 提取答案，使用預設回應`);
