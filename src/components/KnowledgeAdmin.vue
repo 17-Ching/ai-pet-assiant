@@ -8,6 +8,10 @@
       </h1>
       <div class="header-actions">
         <span class="version-badge">版本 {{ currentVersion }}</span>
+        <button @click="$emit('logout')" class="btn-logout">
+          <span class="material-symbols-outlined">logout</span>
+          登出
+        </button>
         <button @click="$emit('close')" class="btn-close">
           <span class="material-symbols-outlined">close</span>
           返回
@@ -264,7 +268,7 @@ import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { clearCache } from "../services/knowledgeManager";
 
-const emit = defineEmits(["close"]);
+const emit = defineEmits(["close", "logout"]);
 
 // 狀態管理
 const currentVersion = ref("");
@@ -572,7 +576,7 @@ function exportToExcel() {
 
   // 建立工作表
   const ws = XLSX.utils.json_to_sheet(exportData);
-  
+
   // 設定欄位寬度
   ws["!cols"] = [
     { wch: 25 }, // ID
@@ -728,6 +732,25 @@ async function confirmSave() {
   border-radius: 20px;
   font-size: 14px;
   font-weight: 500;
+}
+
+.btn-logout {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-logout:hover {
+  background: #ee5a52;
 }
 
 .btn-close {

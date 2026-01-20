@@ -76,6 +76,7 @@ function closeAdmin() {
     <KnowledgeAdmin
       v-else-if="currentComponent === 'admin'"
       @close="closeAdmin"
+      @logout="logout"
     />
 
     <!-- 密碼驗證對話框 -->
