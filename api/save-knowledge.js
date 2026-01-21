@@ -11,7 +11,7 @@
  * 本範例使用 GitHub API 方案
  */
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // 只允許 POST 請求
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -134,4 +134,4 @@ export default async function handler(req, res) {
       hint: "請確認 GITHUB_TOKEN 和 GITHUB_REPO 環境變數已正確設定",
     });
   }
-}
+};
