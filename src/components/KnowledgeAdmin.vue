@@ -452,13 +452,14 @@ async function parsePDF(file) {
   formData.append("file", file);
 
   try {
-    const response = await fetch(
-      "http://localhost:3001/api/extract-knowledge",
-      {
-        method: "POST",
-        body: formData,
-      },
-    );
+    const apiUrl = import.meta.env.VITE_API_URL || "";
+    const endpoint = apiUrl
+      ? `${apiUrl}/api/extract-knowledge`
+      : "/api/extract-knowledge";
+    const response = await fetch(endpoint, {
+      method: "POST",
+      body: formData,
+    });
 
     if (!response.ok) {
       throw new Error("PDF 處理失敗");
@@ -655,7 +656,12 @@ async function confirmSave() {
     };
 
     // 呼叫後端 API 儲存
-    const response = await fetch("http://localhost:3001/api/knowledge/save", {
+    // Vercel 會自動將 /api/* 路由到 Serverless Functions
+    const apiUrl = import.meta.env.VITE_API_URL || "";
+    const endpoint = apiUrl
+      ? `${apiUrl}/api/knowledge/save`
+      : "/api/save-knowledge";
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
