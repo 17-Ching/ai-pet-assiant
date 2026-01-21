@@ -1,5 +1,5 @@
 {
-  "version": "1.9.0",
+  "version": "1.9.1",
   "last_update": "2026-01-21",
   "project": "Pet AI Assistant - 寵物健康智能助手",
   "knowledge_sources": [
@@ -12,6 +12,13 @@
     }
   ],
   "update_records": [
+    {
+      "version": "1.9.1",
+      "date": "2026-01-21",
+      "changes": [
+        "- 更新知識庫"
+      ]
+    },
     {
       "version": "1.9.0",
       "date": "2026-01-21",
