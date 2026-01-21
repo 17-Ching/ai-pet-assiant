@@ -92,6 +92,14 @@ export default async function handler(req, res) {
       },
     );
 
+    if (!getFileResponse.ok) {
+      const errorData = await getFileResponse.json();
+      console.error("❌ GitHub 獲取檔案失敗:", errorData);
+      throw new Error(
+        `GitHub API 錯誤 (${getFileResponse.status}): ${errorData.message || "無法獲取檔案"}`,
+      );
+    }
+
     const fileData = await getFileResponse.json();
 
     // 2. 更新檔案
@@ -116,7 +124,11 @@ export default async function handler(req, res) {
     );
 
     if (!updateResponse.ok) {
-      throw new Error("GitHub API 更新失敗");
+      const errorData = await updateResponse.json();
+      console.error("❌ GitHub 更新檔案失敗:", errorData);
+      throw new Error(
+        `GitHub API 更新失敗 (${updateResponse.status}): ${errorData.message || "未知錯誤"}`,
+      );
     }
 
     return res.status(200).json({
