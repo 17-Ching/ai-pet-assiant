@@ -1,5 +1,5 @@
 {
-  "version": "1.8.0",
+  "version": "1.9.0",
   "last_update": "2026-01-21",
   "categories": {
     "醫療急救": {
@@ -206,14 +206,13 @@
       "risk_level": "low"
     },
     {
-      "id": "manual-1768967848354",
+      "id": "manual-1768969021281",
       "category": "餵養",
-      "topic": "寵物體重過重",
+      "topic": "寵物吃開心果",
       "keywords": [
-        "體重",
-        "過重"
+        "開心果"
       ],
-      "content": "不要吃了趕快減肥",
+      "content": "吃了開心",
       "source": "手動新增",
       "species": [
         "dog",
