@@ -678,19 +678,45 @@ async function confirmSave() {
     // 清除前端知識庫快取，強制重新載入
     clearCache();
 
+    // 顯示成功訊息
     alert(
-      `✅ 知識庫儲存成功！\n\n版本：${newVersion.value}\n備份檔：${result.backupFile}\n\n✨ 聊天介面將自動使用新知識`,
+      `✅ 知識庫已成功更新到 GitHub！\n\n` +
+        `版本：${newVersion.value}\n` +
+        `${result.note || "Vercel 將自動重新部署，約 1-2 分鐘後生效"}\n\n` +
+        `⏰ 請等待 1-2 分鐘後重新整理頁面，新知識才會生效`,
     );
 
     currentVersion.value = newVersion.value;
     newVersion.value = "";
     updateNotes.value = "";
+
+    // 等待幾秒後重新載入當前知識庫（顯示更新中狀態）
+    setTimeout(async () => {
+      try {
+        const checkResponse = await fetch("/knowledge.json?t=" + Date.now());
+        const checkData = await checkResponse.json();
+        if (checkData.version === knowledgeData.version) {
+          // 版本已更新，頁面可以重新載入了
+          if (confirm("🎉 新版本已生效！是否現在重新整理頁面？")) {
+            window.location.reload();
+          }
+        } else {
+          console.log("⏰ Vercel 尚未完成部署，當前版本:", checkData.version);
+        }
+      } catch (error) {
+        console.log("檢查版本時發生錯誤:", error);
+      }
+    }, 3000);
   } catch (error) {
-    alert(
-      "❌ 儲存失敗: " +
-        error.message +
-        "\n\n請確保後端服務已啟動（npm run api）",
-    );
+    const errorMessage =
+      error.message === "儲存失敗"
+        ? await fetch(endpoint)
+            .then((r) => r.json())
+            .then((d) => d.message)
+            .catch(() => error.message)
+        : error.message;
+
+    alert("❌ 儲存失敗: " + errorMessage);
   } finally {
     isSaving.value = false;
   }
