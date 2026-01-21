@@ -81,6 +81,29 @@ export default async function handler(req, res) {
     const [owner, repo] = githubRepo.split("/");
     const filePath = "public/knowledge.json";
 
+    // 0. 先獲取倉庫預設分支
+    const repoInfoResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}`,
+      {
+        headers: {
+          Authorization: `token ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      },
+    );
+
+    if (!repoInfoResponse.ok) {
+      const errorData = await repoInfoResponse.json();
+      console.error("❌ GitHub 獲取倉庫資訊失敗:", errorData);
+      throw new Error(
+        `無法獲取倉庫資訊 (${repoInfoResponse.status}): ${errorData.message || "請確認 GITHUB_REPO 設定正確"}`,
+      );
+    }
+
+    const repoInfo = await repoInfoResponse.json();
+    const defaultBranch = repoInfo.default_branch; // 自動取得預設分支 (main 或 master)
+    console.log(`✅ 偵測到預設分支: ${defaultBranch}`);
+
     // 1. 獲取當前檔案的 SHA（GitHub 需要）
     const getFileResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
@@ -118,7 +141,7 @@ export default async function handler(req, res) {
             JSON.stringify(newKnowledgeBase, null, 2),
           ).toString("base64"),
           sha: fileData.sha,
-          branch: "main", // 或 'master'，根據你的分支名稱
+          branch: defaultBranch, // 使用自動偵測的預設分支
         }),
       },
     );
