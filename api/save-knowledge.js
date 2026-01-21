@@ -104,8 +104,8 @@ export default async function handler(req, res) {
     const defaultBranch = repoInfo.default_branch; // 自動取得預設分支 (main 或 master)
     console.log(`✅ 偵測到預設分支: ${defaultBranch}`);
 
-    // 1. 獲取當前檔案的 SHA（GitHub 需要）
-    const getFileResponse = await fetch(
+    // 1. 更新 knowledge.json
+    const getKnowledgeResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {
         headers: {
@@ -115,18 +115,17 @@ export default async function handler(req, res) {
       },
     );
 
-    if (!getFileResponse.ok) {
-      const errorData = await getFileResponse.json();
-      console.error("❌ GitHub 獲取檔案失敗:", errorData);
+    if (!getKnowledgeResponse.ok) {
+      const errorData = await getKnowledgeResponse.json();
+      console.error("❌ GitHub 獲取 knowledge.json 失敗:", errorData);
       throw new Error(
-        `GitHub API 錯誤 (${getFileResponse.status}): ${errorData.message || "無法獲取檔案"}`,
+        `GitHub API 錯誤 (${getKnowledgeResponse.status}): ${errorData.message || "無法獲取檔案"}`,
       );
     }
 
-    const fileData = await getFileResponse.json();
+    const knowledgeFileData = await getKnowledgeResponse.json();
 
-    // 2. 更新檔案
-    const updateResponse = await fetch(
+    const updateKnowledgeResponse = await fetch(
       `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`,
       {
         method: "PUT",
@@ -140,18 +139,77 @@ export default async function handler(req, res) {
           content: Buffer.from(
             JSON.stringify(newKnowledgeBase, null, 2),
           ).toString("base64"),
-          sha: fileData.sha,
-          branch: defaultBranch, // 使用自動偵測的預設分支
+          sha: knowledgeFileData.sha,
+          branch: defaultBranch,
         }),
       },
     );
 
-    if (!updateResponse.ok) {
-      const errorData = await updateResponse.json();
-      console.error("❌ GitHub 更新檔案失敗:", errorData);
+    if (!updateKnowledgeResponse.ok) {
+      const errorData = await updateKnowledgeResponse.json();
+      console.error("❌ GitHub 更新 knowledge.json 失敗:", errorData);
       throw new Error(
-        `GitHub API 更新失敗 (${updateResponse.status}): ${errorData.message || "未知錯誤"}`,
+        `GitHub API 更新失敗 (${updateKnowledgeResponse.status}): ${errorData.message || "未知錯誤"}`,
       );
+    }
+
+    // 2. 更新 manifest.json
+    const manifestPath = "public/manifest.json";
+    const getManifestResponse = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${manifestPath}`,
+      {
+        headers: {
+          Authorization: `token ${githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      },
+    );
+
+    if (!getManifestResponse.ok) {
+      console.log("⚠️ 無法獲取 manifest.json，跳過更新");
+    } else {
+      const manifestFileData = await getManifestResponse.json();
+      const manifestContent = JSON.parse(
+        Buffer.from(manifestFileData.content, "base64").toString("utf-8"),
+      );
+
+      // 更新 manifest 版本和更新記錄
+      manifestContent.version = version;
+      manifestContent.last_update = last_update;
+      if (!manifestContent.update_records) {
+        manifestContent.update_records = [];
+      }
+      manifestContent.update_records.unshift({
+        version: version,
+        date: last_update,
+        changes: updateNotes ? updateNotes.split("\n") : ["更新知識庫"],
+      });
+
+      const updateManifestResponse = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${manifestPath}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${githubToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            message: `更新 manifest 到版本 ${version}`,
+            content: Buffer.from(
+              JSON.stringify(manifestContent, null, 2),
+            ).toString("base64"),
+            sha: manifestFileData.sha,
+            branch: defaultBranch,
+          }),
+        },
+      );
+
+      if (!updateManifestResponse.ok) {
+        console.log("⚠️ manifest.json 更新失敗，但 knowledge.json 已更新");
+      } else {
+        console.log("✅ manifest.json 已同步更新");
+      }
     }
 
     return res.status(200).json({
