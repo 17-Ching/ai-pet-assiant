@@ -1,6 +1,6 @@
 {
-  "version": "1.9.3",
-  "last_update": "2026-01-21",
+  "version": "1.10.3",
+  "last_update": "2026-02-06",
   "categories": {
     "醫療急救": {
       "description": "寵物醫療急救相關知識"
@@ -178,7 +178,7 @@
       "keywords": [
         "開心果"
       ],
-      "content": "吃了開心",
+      "content": "吃了開心123",
       "source": "手動新增",
       "species": [
         "dog",
